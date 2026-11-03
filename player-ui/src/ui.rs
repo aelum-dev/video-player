@@ -24,9 +24,6 @@ use crate::Shared;
 const IDLE_HIDE_MS: i64 = 2500;
 /// How often the idle check runs (cheap: a few `Cell` reads).
 const IDLE_TICK_MS: u64 = 500;
-/// Grace before a single click on the video counts as play/pause, so a double
-/// click (fullscreen) can win.
-const CLICK_GRACE_MS: u64 = 250;
 /// Delay between the last slider move and the committed seek: short enough to
 /// feel instant, long enough to let a whole drag run as one seek.
 const SEEK_COMMIT_MS: u64 = 350;
@@ -60,7 +57,6 @@ pub struct Controls {
     hover: Rc<Cell<bool>>,
     revealed: Rc<Cell<bool>>,
     last_motion: Rc<Cell<i64>>,
-    last_double_click: Rc<Cell<i64>>,
     /// Last pointer position. Wayland re-sends the (unchanged) pointer
     /// position as a motion event after every surface commit — with a
     /// constantly repainting GLArea that is several times a second. Only a
@@ -535,7 +531,6 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
         hover: Rc::new(Cell::new(false)),
         revealed: Rc::new(Cell::new(true)),
         last_motion: Rc::new(Cell::new(Controls::now_ms())),
-        last_double_click: Rc::new(Cell::new(0)),
         last_pos: Rc::new(Cell::new((-1.0, -1.0))),
     };
 
@@ -594,49 +589,23 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
         }
     });
 
-    // mpv-style mouse bindings on the video: click = play/pause, double click
-    // = fullscreen. The double click wins by timestamp, so no timer to cancel.
-    let click = gtk::GestureClick::new();
-    click.set_button(1);
-    {
-        let engine = shared.engine.clone();
-        let last_double_cell = controls.last_double_click.clone();
-        click.connect_released(move |_, n_press, _, _| {
-            if n_press != 1 {
-                return;
-            }
-            let started = Controls::now_ms();
-            let engine = engine.clone();
-            let last_double = last_double_cell.clone();
-            glib::timeout_add_local_once(Duration::from_millis(CLICK_GRACE_MS), move || {
-                // A double click that landed after this release owns the gesture.
-                if last_double.get() < started
-                    && let Err(err) = engine.toggle_play()
-                {
-                    tracing::warn!(%err, "play/pause failed");
-                }
-            });
-        });
-    }
+    // Double-click on the video toggles fullscreen. Play/pause is *not* bound
+    // to clicking the video (that was an easy accidental pause); it lives on
+    // the center button, the playbar button, and Space.
     let double = gtk::GestureClick::new();
     double.set_button(1);
     {
         let window_clone = window.clone();
-        let last_double = controls.last_double_click.clone();
         double.connect_pressed(move |_, n_press, _, _| {
             if n_press == 2 {
-                let now = Controls::now_ms();
                 if window_clone.is_fullscreen() {
                     window_clone.unfullscreen();
                 } else {
                     window_clone.fullscreen();
                 }
-                // Publish only after the toggle: the single click compares it.
-                last_double.set(now);
             }
         });
     }
-    video.add_controller(click);
     video.add_controller(double);
 
     // Keep the fullscreen button's icon honest.
