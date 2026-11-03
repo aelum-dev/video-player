@@ -1,0 +1,132 @@
+/* mpv-gtk application styles */
+
+/* The video letterbox: mpv clears the FBO with alpha 0 outside the frame,
+   so whatever is behind the GLArea shows through. Make it cinema black. */
+window.background.player-window {
+    background-color: black;
+}
+
+.video-area {
+    background: black;
+}
+
+/* Controls floating over the video. */
+.floating-bar {
+    padding: 12px 16px;
+}
+
+.floating-header {
+    background-image: linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0.75),
+        rgba(0, 0, 0, 0.35) 60%,
+        rgba(0, 0, 0, 0)
+    );
+}
+
+.floating-playbar {
+    background-image: linear-gradient(
+        to top,
+        rgba(0, 0, 0, 0.75),
+        rgba(0, 0, 0, 0.35) 60%,
+        rgba(0, 0, 0, 0)
+    );
+}
+
+/* The gradient is always dark, so the controls must be light regardless
+   of the system theme. */
+.floating-bar button,
+.floating-bar label {
+    color: #f6f6f6;
+}
+
+.floating-bar button {
+    min-height: 44px;
+    min-width: 44px;
+    -gtk-icon-size: 24px;
+}
+
+.floating-bar button:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.floating-bar button label {
+    font-size: 1.1em;
+}
+
+/* The playback bar is the one used while watching: its controls are a
+   size step larger than the header's. */
+.floating-playbar {
+    padding: 16px 20px;
+}
+
+.floating-playbar button {
+    min-height: 58px;
+    min-width: 58px;
+    -gtk-icon-size: 34px;
+}
+
+.floating-playbar button label {
+    font-size: 1.3em;
+}
+
+.header-title {
+    font-weight: 600;
+    font-size: 1.05em;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.time-label {
+    font-variant-numeric: tabular-nums;
+    font-size: 1.3em;
+    opacity: 0.9;
+}
+
+/* Chunky seek slider: easy to hit with the pointer. */
+scale.seek trough {
+    min-height: 18px;
+    border-radius: 999px;
+}
+
+scale.seek trough highlight {
+    background-color: #e05780;
+    border-radius: 999px;
+}
+
+scale.seek trough slider {
+    min-height: 38px;
+    min-width: 38px;
+    margin: -10px;
+    border-radius: 999px;
+    background-color: #f6f6f6;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+/* Volume / speed sliders inside the popovers, same idea at popover scale. */
+popover scale trough {
+    min-height: 12px;
+    border-radius: 999px;
+}
+
+popover scale trough slider {
+    min-height: 24px;
+    min-width: 24px;
+    margin: -6px;
+    border-radius: 999px;
+}
+
+/* Big round play/pause in the middle of the video (visible while paused). */
+button.center-play {
+    min-height: 92px;
+    min-width: 92px;
+    padding: 0;
+    border-radius: 999px;
+    -gtk-icon-size: 44px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #f6f6f6;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+button.center-play:hover {
+    background: rgba(0, 0, 0, 0.75);
+}

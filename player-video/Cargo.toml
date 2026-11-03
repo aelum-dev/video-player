@@ -1,0 +1,12 @@
+[package]
+name = "player-video"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+player-core = { path = "../player-core" }
+anyhow.workspace = true
+tracing.workspace = true
+mpv-engine.workspace = true
+gtk.workspace = true
