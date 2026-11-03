@@ -12,10 +12,12 @@ A modular media player: GTK4 + libadwaita UI, libmpv playback through the
   real debugging sessions (e.g. `keep-open=always` means no `end-file` at
   EOF; `GestureClick`'s counter climbs past 2 and the binding sticks).
 - `PLAN.md` — architecture rules, verified stack decisions, open milestones.
-- `PROGRESS.md` — the work journal: what was verified and how, known issues,
-  next steps, and the environment this box runs. Update it when you verify
-  something non-obvious; keep durable API facts in `docs/api-notes.md`
-  instead, and machine-specific facts in the journal.
+- `PROGRESS.md` — the work journal (local file, deliberately **not tracked
+  in git**): what was verified and how, known issues, next steps, and the
+  environment this box runs. Update it when you verify something
+  non-obvious; keep durable API facts in `docs/api-notes.md` instead, and
+  machine-specific facts in the journal. If it is missing, you are in a
+  fresh clone — work without it or start a new journal.
 
 ## Layout and the one hard rule
 
