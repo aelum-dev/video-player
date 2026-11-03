@@ -36,12 +36,15 @@ const VOLUME_STEP: i64 = 5;
 /// where the user left off and resuming five seconds earlier when the
 /// player is killed rather than closed.
 const LAST_PLAYED_REFRESH_MS: i64 = 5_000;
-/// A title left this close to its end counts as finished: the next start
-/// plays it again instead of opening on its last frame.
-const NEAR_END_SECS: f64 = 2.0;
 
 /// State shared between actions, the window, and the event pump.
 /// Main-thread only except `engine`.
+///
+/// `engine` is the concrete `MpvEngine`, not `Arc<dyn PlaybackEngine>`:
+/// with one engine, dyn-dispatch buys nothing the constructor swap can't
+/// do, and the GL seam (`VideoArea`, the render check below) needs the
+/// concrete type anyway. The trait seam in `player_core::engine` is what
+/// a binding swap would rework — see PLAN.md.
 #[derive(Clone)]
 struct Shared {
     engine: Arc<MpvEngine>,
@@ -133,7 +136,7 @@ fn main() -> gtk::glib::ExitCode {
     app.connect_shutdown({
         let shared = shared.clone();
         move |_| {
-            save_last_played(&shared, resume_point(&shared.state.borrow()));
+            save_last_played(&shared, shared.state.borrow().resume_point());
         }
     });
 
@@ -358,10 +361,7 @@ fn toggle_playback(shared: &Shared) {
         open_source(shared, &entry.source, true, entry.position);
         return;
     }
-    let restart = {
-        let state = shared.state.borrow();
-        state.ended && state.paused
-    };
+    let restart = shared.state.borrow().should_restart();
     let result = if restart {
         tracing::info!("title ended: play starts it over from 0:00");
         {
@@ -376,15 +376,6 @@ fn toggle_playback(shared: &Shared) {
     if let Err(err) = result {
         tracing::warn!(%err, "play/pause failed");
     }
-}
-
-/// The position worth recording for the current title: 0 when it is at its
-/// end, so the next start plays it again instead of opening on a still frame.
-fn resume_point(state: &PlaybackState) -> f64 {
-    let position = state.position.max(0.0);
-    let at_end = state.ended
-        || (state.duration > 0.0 && state.duration - position < NEAR_END_SECS);
-    if at_end { 0.0 } else { position }
 }
 
 /// Writes the last-played record for the current title. A failure is logged
@@ -455,13 +446,10 @@ fn start_event_pump(shared: &Shared) {
             }
             // Keep the record current while something is playing, so a player
             // that is killed (not closed) still reopens where it left off.
-            let playing = {
-                let state = shared.state.borrow();
-                state.source.is_some() && !state.paused
-            };
+            let playing = shared.state.borrow().is_playing();
             let now = gtk::glib::monotonic_time() / 1000;
             if playing && now - shared.last_saved.get() >= LAST_PLAYED_REFRESH_MS {
-                let position = resume_point(&shared.state.borrow());
+                let position = shared.state.borrow().resume_point();
                 save_last_played(&shared, position);
             }
             gtk::glib::ControlFlow::Continue

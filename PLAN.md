@@ -36,15 +36,16 @@ backend, extensible plugin architecture, reproducible Docker builds.
 ## Architecture
 
 ```
-mpv-gtk/                      # Cargo workspace
+video-player/                 # Cargo workspace (binary: video-player)
 ├── Cargo.toml
-├── Dockerfile                # freedesktop SDK base (org.freedesktop.Sdk:25.08+)
-├── player-core/              # NO UI/GTK deps: engine adapter, state model, plugins, IPC
-│   ├── engine.rs             # our Engine trait + mpv-engine adapter (event pump → typed bus)
-│   ├── state.rs              # PlaybackState: position, metadata, chapters, tracks
-│   └── plugin.rs             # Plugin trait { name, on_event, commands, ui_extensions } + registry
-├── player-video/             # GLArea paint handler → engine.render_gl(); swappable sink trait
-├── player-ui/                # libadwaita app: windows, widgets, CSS theme
+├── Dockerfile                # Arch base matching the host stack
+├── player-core/              # NO UI/GTK deps: engine adapter, state model, resume record
+│   ├── engine.rs             # our PlaybackEngine trait + mpv-engine adapter (event pump → typed bus)
+│   ├── state.rs              # PlaybackState: event fold + resume/restart policy
+│   └── last_played.rs        # resume record, written into mpv's own config dir
+├── player-video/             # GLArea render sink (gllink.rs = raw GL symbol loader)
+├── player-ui/                # libadwaita app: main.rs (lifecycle, actions, event pump),
+│                             # ui/ (window, controls, seek, dnd), theme.rs, data/style.css
 └── player-ipc/               # JSON-RPC over local socket + D-Bus (later phase)
 ```
 
@@ -54,6 +55,10 @@ its event stream. A future TUI/web front-end plugs into the same core.
 ### Plugin architecture (static now, dynamic later)
 - Static registry of built-in modules: `playback`, `playlist`, `subtitles`,
   `media-info`, `screenshot`, `equalizer` (mpv `af=equalizer`).
+- The placeholder `plugin.rs` was removed during the 2026-11-03 refactor: it
+  had no users, and a trait designed without a real plugin drifts. The
+  registry lands together with the first real plugin (Milestone 4), designed
+  against that plugin's actual needs.
 - Each plugin contributes: event handlers, app actions/shortcuts, optional UI
   sections (header-bar button, preferences page).
 - Phase 2: `libloading`-based `.so` plugins with a stable ABI struct once the

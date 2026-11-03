@@ -13,5 +13,5 @@ COPY player-ui ./player-ui
 RUN cargo build --release --locked
 
 # GUI smoke test inside the container needs a display; run with:
-#   docker run --rm -it -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unx \
+#   docker run --rm -it -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix \
 #     video-player-build target/release/video-player some-video.mkv

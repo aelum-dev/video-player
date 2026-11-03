@@ -4,6 +4,10 @@ use std::path::Path;
 
 use crate::engine::{PlayerEvent, PropertyValue};
 
+/// A title left this close to its end counts as finished: the next start
+/// plays it again instead of opening on its last frame.
+const NEAR_END_SECS: f64 = 2.0;
+
 #[derive(Debug, Clone)]
 pub struct PlaybackState {
     pub source: Option<String>,
@@ -99,6 +103,29 @@ impl PlaybackState {
                 .unwrap_or_else(|| p.clone())
         })
     }
+
+    /// The position worth recording for the current title: 0 when it is at
+    /// its end, so the next start plays it again instead of opening on a
+    /// still frame.
+    pub fn resume_point(&self) -> f64 {
+        let position = self.position.max(0.0);
+        let at_end =
+            self.ended || (self.duration > 0.0 && self.duration - position < NEAR_END_SECS);
+        if at_end { 0.0 } else { position }
+    }
+
+    /// True when "play" means start over: with `keep-open=always` an ended
+    /// title sits paused on its last frame, and resuming there would end
+    /// again immediately.
+    pub fn should_restart(&self) -> bool {
+        self.ended && self.paused
+    }
+
+    /// Something is loaded and playing — what tells a front-end to keep
+    /// refreshing the last-played record.
+    pub fn is_playing(&self) -> bool {
+        self.source.is_some() && !self.paused
+    }
 }
 
 #[cfg(test)]
@@ -185,5 +212,62 @@ mod tests {
         state.set_play_state(false);
         state.apply(&PlayerEvent::Loaded);
         assert!(!state.ended && state.position == 0.0);
+    }
+
+    #[test]
+    fn resume_point_records_the_position_except_near_the_end() {
+        let mut state = PlaybackState::default();
+        state.set_source("/a.mkv");
+        state.duration = 100.0;
+        state.position = 42.0;
+        assert_eq!(state.resume_point(), 42.0);
+
+        // Within NEAR_END_SECS of the end counts as finished: reopen from 0.
+        state.position = 98.5;
+        assert_eq!(state.resume_point(), 0.0);
+
+        // An ended title never resumes on its last frame.
+        state.position = 100.0;
+        state.apply(&flag("eof-reached", true));
+        assert_eq!(state.resume_point(), 0.0);
+
+        // Unknown duration (stream): record the position as-is; negatives clamp.
+        state.ended = false;
+        state.duration = 0.0;
+        state.position = 12.0;
+        assert_eq!(state.resume_point(), 12.0);
+        state.position = -3.0;
+        assert_eq!(state.resume_point(), 0.0);
+    }
+
+    #[test]
+    fn play_means_restart_only_when_paused_at_the_end() {
+        let mut state = PlaybackState::default();
+        state.set_source("/a.mkv");
+        state.apply(&flag("eof-reached", true));
+        state.apply(&flag("pause", true));
+        assert!(state.should_restart());
+
+        // keep-open-pause=no: a title can sit at EOF still playing, where
+        // the button means pause, not start over.
+        state.apply(&flag("pause", false));
+        assert!(!state.should_restart());
+
+        // Mid-title, paused: the button resumes, it does not restart.
+        state.apply(&flag("eof-reached", false));
+        state.apply(&flag("pause", true));
+        assert!(!state.should_restart());
+    }
+
+    #[test]
+    fn is_playing_requires_a_loaded_unpaused_title() {
+        let mut state = PlaybackState::default();
+        assert!(!state.is_playing(), "nothing loaded, nothing playing");
+        state.set_source("/a.mkv");
+        assert!(!state.is_playing(), "a paused load waits on the play button");
+        state.set_play_state(false);
+        assert!(state.is_playing());
+        state.apply(&flag("pause", true));
+        assert!(!state.is_playing());
     }
 }
