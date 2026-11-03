@@ -27,6 +27,10 @@ const IDLE_TICK_MS: u64 = 500;
 /// Delay between the last slider move and the committed seek: short enough to
 /// feel instant, long enough to let a whole drag run as one seek.
 const SEEK_COMMIT_MS: u64 = 350;
+/// How long the pump holds the seek knob at the target after a seek is issued,
+/// covering mpv's async seek latency so the knob never snaps back to the stale
+/// position for a frame or two.
+const SEEK_SETTLE_MS: i64 = 400;
 /// Half of the seek knob (38 px in style.css): click-to-position maps the
 /// track between the knob's edge stops.
 const KNOB_HALF_PX: f64 = 19.0;
@@ -53,6 +57,11 @@ pub struct Controls {
     /// True while the user owns the seek slider (drag or arrows): the pump must
     /// not fight them for it.
     seeking: Rc<Cell<bool>>,
+    /// Monotonic-ms deadline until which the pump must keep its hands off the
+    /// seek knob *after* a seek is committed. mpv's seek is async, so without
+    /// this the pump would snap the knob back to the stale position for a frame
+    /// or two before the seek lands.
+    seek_settle: Rc<Cell<i64>>,
     /// Pointer is over one of the control bars, or a popover is open.
     hover: Rc<Cell<bool>>,
     revealed: Rc<Cell<bool>>,
@@ -143,7 +152,7 @@ impl Controls {
             .set_icon_name(volume_icon(state.volume, state.muted));
         self.speed_button.set_label(&format!("{:.2}×", state.speed));
 
-        if !self.seeking.get() {
+        if !self.seeking.get() && Controls::now_ms() >= self.seek_settle.get() {
             let duration = state.duration.max(0.0);
             self.seek.set_range(0.0, duration);
             self.seek.set_value(state.position.clamp(0.0, duration));
@@ -265,10 +274,12 @@ fn build_playbar(shared: &Shared) -> (gtk::Revealer, PlayBar) {
     duration_label.add_css_class("time-label");
 
     // GTK requires min < max at construction; `refresh` sets the real range
-    // once a duration is known.
+    // once a duration is known. Page increment stays 0 so GTK's native trough
+    // click never steps the value out from under our click-to-jump handler.
     let seek = gtk::Scale::with_range(gtk::Orientation::Horizontal, 0.0, 1.0, 1.0);
     seek.set_draw_value(false);
     seek.set_hexpand(true);
+    seek.adjustment().set_page_increment(0.0);
     seek.add_css_class("seek");
 
     let volume_button = gtk::MenuButton::builder()
@@ -419,17 +430,26 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
     // knob stops working entirely (the "seek bar not working" bug).
     let seeking = Rc::new(Cell::new(false));
     let seek_target = Rc::new(Cell::new(0.0));
+    let seek_settle = Rc::new(Cell::new(0i64));
     let pending_commit: Rc<RefCell<Option<glib::SourceId>>> = Rc::new(RefCell::new(None));
     let arm_commit = {
         let engine = shared.engine.clone();
-        let (seeking, seek_target, pending_commit) =
-            (seeking.clone(), seek_target.clone(), pending_commit.clone());
+        let (seeking, seek_target, seek_settle, pending_commit) = (
+            seeking.clone(),
+            seek_target.clone(),
+            seek_settle.clone(),
+            pending_commit.clone(),
+        );
         Rc::new(move || {
             if let Some(id) = pending_commit.borrow_mut().take() {
                 id.remove();
             }
-            let (engine, seeking, seek_target) =
-                (engine.clone(), seeking.clone(), seek_target.clone());
+            let (engine, seeking, seek_target, seek_settle) = (
+                engine.clone(),
+                seeking.clone(),
+                seek_target.clone(),
+                seek_settle.clone(),
+            );
             let pending_inner = pending_commit.clone();
             let id = glib::timeout_add_local_once(
                 Duration::from_millis(SEEK_COMMIT_MS),
@@ -437,6 +457,7 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
                     *pending_inner.borrow_mut() = None;
                     if seeking.get() {
                         seeking.set(false);
+                        seek_settle.set(Controls::now_ms() + SEEK_SETTLE_MS);
                         if let Err(err) = engine.seek(seek_target.get()) {
                             tracing::warn!(%err, "seek failed");
                         }
@@ -470,7 +491,8 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
         //   is never delivered; on a normal release it is cancelled here.
         let engine = shared.engine.clone();
         let slider = bar.seek.clone();
-        let (seeking, seek_target) = (seeking.clone(), seek_target.clone());
+        let (seeking, seek_target, seek_settle) =
+            (seeking.clone(), seek_target.clone(), seek_settle.clone());
         let (arm_commit, pending_commit) = (arm_commit.clone(), pending_commit.clone());
         let press = gtk::EventControllerLegacy::new();
         press.connect_event(move |_ctrl, event| {
@@ -478,8 +500,21 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
                 gtk::gdk::EventType::ButtonPress => {
                     if let Some(button) = event.downcast_ref::<gtk::gdk::ButtonEvent>()
                         && button.button() == 1
-                        && let Some((x, _)) = event.position()
+                        && let Some((sx, sy)) = event.position()
                     {
+                        // `event.position()` is *surface*-relative, but the
+                        // slider sits offset inside the window (after the
+                        // transport buttons and the time label). Using the raw
+                        // x made the fraction too large and clamped to 1.0 —
+                        // the knob "teleported to the end". Convert the point
+                        // into the slider's own coordinate space first.
+                        let local_x = slider.root().and_then(|root| {
+                            let src = gtk::graphene::Point::new(sx as f32, sy as f32);
+                            root.compute_point(&slider, &src).map(|p| f64::from(p.x()))
+                        });
+                        let Some(x) = local_x else {
+                            return glib::Propagation::Proceed;
+                        };
                         let width = slider.width() as f64;
                         if width > 2.0 * KNOB_HALF_PX {
                             let fraction = ((x - KNOB_HALF_PX)
@@ -489,6 +524,7 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
                             seeking.set(true);
                             seek_target.set(value);
                             slider.set_value(value);
+                            seek_settle.set(Controls::now_ms() + SEEK_SETTLE_MS);
                             if let Err(err) = engine.seek(value) {
                                 tracing::warn!(%err, "seek failed");
                             }
@@ -505,6 +541,7 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
                         if let Some(id) = pending_commit.borrow_mut().take() {
                             id.remove();
                         }
+                        seek_settle.set(Controls::now_ms() + SEEK_SETTLE_MS);
                         if let Err(err) = engine.seek(seek_target.get()) {
                             tracing::warn!(%err, "seek failed");
                         }
@@ -533,6 +570,7 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
         center: center.clone(),
         center_button: center_button.clone(),
         seeking,
+        seek_settle,
         hover: Rc::new(Cell::new(false)),
         revealed: Rc::new(Cell::new(true)),
         last_motion: Rc::new(Cell::new(Controls::now_ms())),
