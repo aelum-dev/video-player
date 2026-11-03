@@ -3,22 +3,25 @@
  * This file styles what floats *over the video*: the header and playbar
  * scrims, the center button, the sliders. The chrome - menus, popovers,
  * dialogs - is left to libadwaita, which already follows the system
- * dark/light setting and the user's palette.
+ * dark/light setting and the user's palette (mirrored + hot-reloaded by
+ * theme.rs).
  *
- * Everything here takes its colors from the palette by NAME (@window_bg_color,
- * @card_bg_color, @accent_bg_color, ...): on this box that is the matugen/DMS
- * palette in ~/.config/gtk-4.0, hot-reloaded by `theme.rs`, and libadwaita's
- * own palette where the user has none. No hex values: when the user switches
- * dark/light the player switches with it.
+ * The overlay over the video is deliberately ALWAYS dark - black scrims,
+ * white ink - in both variants, like every other player (mpv's own OSD,
+ * IINA, YouTube). A scrim over video shades arbitrary picture content,
+ * and only a dark one disappears into it: a palette-driven light scrim
+ * lifts dark footage to grey and the fade region milks the film itself
+ * (that was the "light mode sucks" regression - the bg/fg pair keeps the
+ * overlay legible *against itself*, but a scrim's real contrast partner
+ * is the picture, not the ink). The one palette color that survives over
+ * video is the accent, used for the seek fill over a light trough -
+ * legible whatever hue the palette gives it, dark variant or light.
  *
- * The pairs matter. A scrim uses a *background* name and the controls on it
- * use the matching *foreground* name, so the overlay stays legible in either
- * variant instead of assuming dark: light palette, light scrim, dark icons.
- *
- * To stay readable over bright full-frame video, the header and playbar carry
- * a fade-out gradient that reaches beyond the controls into the picture (the
- * extra padding below/above the bars is the fade region). The falloff is
- * multi-stop and curved on purpose: a linear ramp reads as a hard band.
+ * To stay readable over bright full-frame video, the header and playbar
+ * carry a fade-out gradient that reaches beyond the controls into the
+ * picture (the extra padding below/above the bars is the fade region).
+ * The falloff is multi-stop and curved on purpose: a linear ramp reads
+ * as a hard band.
  */
 
 /* The video letterbox: mpv clears the FBO with alpha 0 outside the frame, so
@@ -44,13 +47,13 @@ window.background.player-window {
     padding-bottom: 100px;
     background-image: linear-gradient(
         to bottom,
-        alpha(@window_bg_color, 0.75),
-        alpha(@window_bg_color, 0.6) 25%,
-        alpha(@window_bg_color, 0.42) 45%,
-        alpha(@window_bg_color, 0.26) 60%,
-        alpha(@window_bg_color, 0.13) 75%,
-        alpha(@window_bg_color, 0.04) 90%,
-        alpha(@window_bg_color, 0)
+        alpha(black, 0.75),
+        alpha(black, 0.6) 25%,
+        alpha(black, 0.42) 45%,
+        alpha(black, 0.26) 60%,
+        alpha(black, 0.13) 75%,
+        alpha(black, 0.04) 90%,
+        alpha(black, 0)
     );
 }
 
@@ -58,21 +61,21 @@ window.background.player-window {
     padding: 100px 20px 16px;
     background-image: linear-gradient(
         to top,
-        alpha(@window_bg_color, 0.75),
-        alpha(@window_bg_color, 0.6) 25%,
-        alpha(@window_bg_color, 0.42) 45%,
-        alpha(@window_bg_color, 0.26) 60%,
-        alpha(@window_bg_color, 0.13) 75%,
-        alpha(@window_bg_color, 0.04) 90%,
-        alpha(@window_bg_color, 0)
+        alpha(black, 0.75),
+        alpha(black, 0.6) 25%,
+        alpha(black, 0.42) 45%,
+        alpha(black, 0.26) 60%,
+        alpha(black, 0.13) 75%,
+        alpha(black, 0.04) 90%,
+        alpha(black, 0)
     );
 }
 
-/* The ink of whatever palette is active - light on a dark palette, dark on a
-   light one, exactly as it is in the rest of the theme. */
+/* White ink on the dark scrim, in both variants: the overlay sits on video,
+   not on chrome, and video can be any color the film wants to be. */
 .floating-bar button,
 .floating-bar label {
-    color: @window_fg_color;
+    color: #f6f6f6;
 }
 
 .floating-bar button {
@@ -82,11 +85,22 @@ window.background.player-window {
 }
 
 .floating-bar button:hover {
-    background: alpha(@window_fg_color, 0.15);
+    background: rgba(255, 255, 255, 0.15);
 }
 
 .floating-bar button label {
     font-size: 1.1em;
+}
+
+/* GTK parents a popover's CSS node under its anchor widget, so the ink
+   rules above reach THROUGH the bar's buttons into their attached
+   popovers — the "..." menu and the volume/speed popovers would wear
+   overlay ink on a chrome surface (light text on a light palette
+   popover: the "fonts problem" in light mode). Popovers are chrome:
+   hand them back the theme's own popover colors. */
+.floating-bar popover label,
+.floating-bar popover button {
+    color: @popover_fg_color;
 }
 
 /* The playback bar is the one used while watching: its controls are a
@@ -104,10 +118,7 @@ window.background.player-window {
 .header-title {
     font-weight: 600;
     font-size: 1.05em;
-    /* The shadow is the palette's own background: it separates the title from
-       the picture behind it in either variant, where a fixed black shadow
-       would smear dark text on light video. */
-    text-shadow: 0 1px 2px alpha(@window_bg_color, 0.8);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 .time-label {
@@ -116,10 +127,14 @@ window.background.player-window {
     opacity: 0.9;
 }
 
-/* Chunky seek slider: easy to hit with the pointer. */
+/* Chunky seek slider: easy to hit with the pointer. The trough is styled
+   here rather than inherited from the theme: over the always-dark overlay
+   it must be a light translucent grey in both variants, so the accent
+   fill and the white knob read against it whatever the chrome palette is. */
 scale.seek trough {
     min-height: 18px;
     border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.25);
 }
 
 scale.seek trough highlight {
@@ -132,13 +147,14 @@ scale.seek trough slider {
     min-width: 38px;
     margin: -10px;
     border-radius: 999px;
-    background-color: @window_fg_color;
-    box-shadow: 0 1px 4px alpha(@window_bg_color, 0.6);
+    background-color: #f6f6f6;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
 }
 
 /* Volume / speed sliders inside the popovers, same idea at popover scale.
-   They take their colors from the theme (the palette, dark or light like the
-   rest of the chrome) and set no colors of their own. */
+   They live in popovers - real chrome - so they take their colors from
+   the theme (the palette, dark or light like the rest of it) and set no
+   colors of their own. */
 popover scale trough {
     min-height: 12px;
     border-radius: 999px;
@@ -151,24 +167,21 @@ popover scale trough slider {
     border-radius: 999px;
 }
 
-/* Big round play/pause in the middle of the video: the palette's card surface
-   with its matching foreground, so it reads as part of the theme over any
-   picture, in either variant. */
+/* Big round play/pause in the middle of the video: a dark neutral disc with
+   white ink, in both variants - the same reason as the scrims. It rides on
+   the picture, and a palette-colored one turns into a pale blob over dark
+   footage in light mode. */
 button.center-play {
     min-height: 92px;
     min-width: 92px;
     padding: 0;
     border-radius: 999px;
     -gtk-icon-size: 44px;
-    background: alpha(@card_bg_color, 0.75);
-    color: @card_fg_color;
-    box-shadow: 0 2px 10px alpha(@window_bg_color, 0.5);
+    background: rgba(24, 24, 24, 0.75);
+    color: #f6f6f6;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
 }
 
 button.center-play:hover {
-    background: alpha(@card_bg_color, 0.9);
+    background: rgba(24, 24, 24, 0.9);
 }
-
-
-
-

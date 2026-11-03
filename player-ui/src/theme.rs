@@ -14,12 +14,13 @@
 //!   to need an app restart. We mirror it into a provider we own and reload
 //!   that when the directory changes; the palette and the chrome variant come
 //!   from the same DMS switch, so they stay in step.
-//! * **The controls over the video** — pure app CSS in `data/style.css`, and
-//!   every color in it comes from the palette *by name* (`@window_bg_color`,
-//!   `@card_bg_color`, `@accent_bg_color`, …) rather than from a fixed value,
-//!   so the overlay wears the user's colors and inverts with them. They sit on
-//!   video rather than on chrome, which is why they are the app's own rules
-//!   and not libadwaita's widgets.
+//! * **The controls over the video** — pure app CSS in `data/style.css`,
+//!   and deliberately NOT palette-driven: black scrims and white ink in
+//!   both variants (a light scrim over arbitrary footage is fog — the
+//!   "light mode sucks" regression). Only the seek fill takes a palette
+//!   name (`@accent_bg_color`), the one color that reads over video in
+//!   any variant. They sit on video rather than on chrome, which is why
+//!   they are the app's own rules and not libadwaita's widgets.
 //!
 //! SIGHUP is ignored — see [`ignore_hangup`].
 
@@ -181,6 +182,7 @@ mod tests {
         "accent_bg_color",
         "card_bg_color",
         "card_fg_color",
+        "popover_fg_color",
         "window_bg_color",
         "window_fg_color",
     ];
