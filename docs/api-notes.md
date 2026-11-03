@@ -164,3 +164,28 @@ before trusting a version-specific claim.
   `GL_INVALID_FRAMEBUFFER_OPERATION`; not a usable probe.
 - KHR_debug only emits messages for **debug** contexts
   (`gdk_gl_context_set_debug_enabled(true)` before `realize`).
+
+## Testing environment
+
+How the project is exercised. Box-specific state (GPU, monitor, scale
+value, personal media paths, pinned versions) deliberately stays out —
+that lives in the untracked journal; the verified stack table in PLAN.md
+carries the versions.
+
+- Wayland under Hyprland (a wlroots-class compositor). Two display-path
+  consequences: Xwayland there is rootless — an x11grab of its root is
+  always black, so settle display-path claims from a Wayland output
+  capture; and a client-initiated window move (`xdg_toplevel.move`, the
+  header-drag code) is ignored unless the compositor honors interactive
+  drags (Hyprland ≥ 0.56).
+- Fractional display scale is the norm on the dev setup: the
+  `GLArea::resize` vfunc reports **physical** pixels while client
+  geometry tools (`hyprctl clients -j`) report logical — convert before
+  comparing any on-screen measurement.
+- Test media fixture (silent-tone video, self-contained):
+  `ffmpeg -y -f lavfi -i testsrc2=duration=8:size=640x360:rate=30
+  -f lavfi -i sine=frequency=440:duration=8 -c:v libx264 -pix_fmt yuv420p
+  -c:a aac test.mkv`
+- For manual path-handling checks, use real clips whose names contain
+  spaces and non-ASCII characters — generated fixtures never exercise
+  that path.
