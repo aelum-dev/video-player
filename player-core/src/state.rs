@@ -21,7 +21,9 @@ impl Default for PlaybackState {
             source: None,
             position: 0.0,
             duration: 0.0,
-            paused: false,
+            // No media is playing until the user presses play: the controls
+            // show the play shape by default (mirrors `PlaybackEngine::open`).
+            paused: true,
             volume: 100.0,
             muted: false,
             speed: 1.0,
@@ -34,7 +36,9 @@ impl PlaybackState {
     pub fn apply(&mut self, event: &PlayerEvent) {
         match event {
             PlayerEvent::Loaded => {
-                self.paused = false;
+                // `open` starts every title paused; this keeps the fold in
+                // sync even if the `pause` property event is still in flight.
+                self.paused = true;
                 self.position = 0.0;
             }
             PlayerEvent::Ended { .. } | PlayerEvent::Failed { .. } => {
