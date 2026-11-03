@@ -41,10 +41,13 @@ pub struct Chapter {
 ///
 /// Volume is in mpv percent (0..100+), times in seconds.
 pub trait PlaybackEngine: Send + Sync {
-    /// Load a file path or URL and start playback. Opening a new file
-    /// always resets to the playing state, even if the previous title was
-    /// paused.
-    fn open(&self, source: &str) -> Result<()>;
+    /// Load a file path or URL.
+    ///
+    /// `autoplay` chooses the state the title starts in: `true` starts it
+    /// playing, `false` leaves it paused on its first frame so the
+    /// front-end's play button is the deliberate start. Either way the play
+    /// state is reset — mpv keeps `pause` across file changes.
+    fn open(&self, source: &str, autoplay: bool) -> Result<()>;
     fn set_paused(&self, paused: bool) -> Result<()>;
     fn is_paused(&self) -> bool;
     fn toggle_play(&self) -> Result<()> {
@@ -114,6 +117,9 @@ impl MpvEngine {
         this.inner.observe("time-pos", PropertyFormat::Double)?;
         this.inner.observe("duration", PropertyFormat::Double)?;
         this.inner.observe("pause", PropertyFormat::Flag)?;
+        // `keep-open=always` holds the last frame instead of ending the file,
+        // so this — not `end-file` — is what says the title is over.
+        this.inner.observe("eof-reached", PropertyFormat::Flag)?;
         this.inner.observe("volume", PropertyFormat::Double)?;
         this.inner.observe("mute", PropertyFormat::Flag)?;
         this.inner.observe("speed", PropertyFormat::Double)?;
@@ -171,11 +177,11 @@ impl MpvEngine {
 }
 
 impl PlaybackEngine for MpvEngine {
-    fn open(&self, source: &str) -> Result<()> {
-        // mpv keeps the `pause` property across file changes, so a title
-        // opened while paused would start paused. Reset to playing: opening
-        // a new video always starts it.
-        self.inner.set_paused(false)?;
+    fn open(&self, source: &str, autoplay: bool) -> Result<()> {
+        // mpv keeps the `pause` property across file changes, so the state a
+        // new title starts in has to be set here rather than left over from
+        // the previous one.
+        self.inner.set_paused(!autoplay)?;
         self.inner.load_when_ready(source)?;
         Ok(())
     }

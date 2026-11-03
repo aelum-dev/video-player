@@ -1,9 +1,12 @@
 //! Video player — the GTK shell: application, actions, and the event pump.
 //!
-//! Opens files from the CLI or Ctrl+O and plays them through the core engine;
-//! the window itself (video surface with controls floating over it) is built
-//! by [`ui`]. This file only wires application lifecycle, actions/accels, and
-//! the event pump that keeps the UI in sync from the core's event stream.
+//! Opens files from the CLI or Ctrl+O and plays them through the core engine.
+//! Started without files it loads nothing: the window opens black with the play
+//! button as the active control, and pressing it starts the last title the
+//! player had (`last_played`). The window itself (video surface with controls
+//! floating over it) is built by [`ui`]. This file only wires application
+//! lifecycle, actions/accels, and the event pump that keeps the UI in sync from
+//! the core's event stream.
 //!
 //! All UI state lives on the GTK main thread (`Rc<RefCell<_>>`); only the
 //! engine crosses threads (`Arc<dyn PlaybackEngine>`, mpv's render/event
@@ -13,13 +16,14 @@ mod format;
 mod theme;
 mod ui;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
 
 use gtk::prelude::*;
 use libadwaita as adw;
+use player_core::last_played::{self, LastPlayed};
 use player_core::{MpvEngine, PlaybackEngine, PlaybackState, PlayerEvent};
 
 const APP_ID: &str = "aelum.videoplayer.Player";
@@ -27,6 +31,14 @@ const APP_ID: &str = "aelum.videoplayer.Player";
 const SEEK_STEP_SECS: i64 = 5;
 /// Volume percentage stepped by the Up/Down keys.
 const VOLUME_STEP: i64 = 5;
+/// How often the last-played record is refreshed while playing. A few
+/// hundred bytes every five seconds, and the difference between resuming
+/// where the user left off and resuming five seconds earlier when the
+/// player is killed rather than closed.
+const LAST_PLAYED_REFRESH_MS: i64 = 5_000;
+/// A title left this close to its end counts as finished: the next start
+/// plays it again instead of opening on its last frame.
+const NEAR_END_SECS: f64 = 2.0;
 
 /// State shared between actions, the window, and the event pump.
 /// Main-thread only except `engine`.
@@ -39,6 +51,17 @@ struct Shared {
     controls: Rc<RefCell<Option<ui::Controls>>>,
     /// Keeps the palette watcher alive (dropping it stops the hot reload).
     theme: Rc<RefCell<Option<theme::Theme>>>,
+    /// Has this session opened a title yet? The first one starts paused (the
+    /// window opens on its play button); anything opened later plays at once.
+    opened_any: Rc<Cell<bool>>,
+    /// The record read at startup: what the play button opens while nothing is
+    /// loaded. Consumed by that press, and never used once a title is open.
+    pending: Rc<RefCell<Option<LastPlayed>>>,
+    /// Position to jump to once the title queued by `open_source` has loaded
+    /// (0 = none). The seek cannot be issued earlier: the file is not loaded yet.
+    resume_at: Rc<Cell<f64>>,
+    /// When the last-played record was last written.
+    last_saved: Rc<Cell<i64>>,
 }
 
 fn main() -> gtk::glib::ExitCode {
@@ -63,6 +86,10 @@ fn main() -> gtk::glib::ExitCode {
         toasts: Rc::new(RefCell::new(None)),
         controls: Rc::new(RefCell::new(None)),
         theme: Rc::new(RefCell::new(None)),
+        opened_any: Rc::new(Cell::new(false)),
+        pending: Rc::new(RefCell::new(None)),
+        resume_at: Rc::new(Cell::new(0.0)),
+        last_saved: Rc::new(Cell::new(0)),
     };
 
     app.connect_startup({
@@ -77,15 +104,36 @@ fn main() -> gtk::glib::ExitCode {
     });
     app.connect_activate({
         let shared = shared.clone();
-        move |app| ensure_window(app, &shared)
+        move |app| {
+            ensure_window(app, &shared);
+            // Started without files: load nothing. The record is only read, so
+            // the play button has something to start when the user presses it.
+            *shared.pending.borrow_mut() = last_played::load();
+            if shared.pending.borrow().is_none() {
+                tracing::info!("no last-played record; the play button opens nothing until a file is chosen");
+            }
+        }
     });
     app.connect_open({
         let shared = shared.clone();
         move |app, files, _hint| {
             ensure_window(app, &shared);
+            // The first title of a session — files on the command line of a
+            // cold start — opens paused, so the window shows its play button
+            // instead of running. Files opened later play straight away.
+            let autoplay = shared.opened_any.get();
+            shared.opened_any.set(true);
             for file in files {
-                open_source(&shared, &source_of(file));
+                open_source(&shared, &source_of(file), autoplay, 0.0);
             }
+        }
+    });
+    // Whatever the exit path (close button, Ctrl+Q, app.quit), leave the
+    // record pointing at the last title and where it stopped.
+    app.connect_shutdown({
+        let shared = shared.clone();
+        move |_| {
+            save_last_played(&shared, resume_point(&shared.state.borrow()));
         }
     });
 
@@ -136,7 +184,7 @@ fn setup_actions(app: &adw::Application, shared: &Shared) {
                             local = ?file.path(),
                             "file chooser selection"
                         );
-                        open_source(&shared, &source_of(&file));
+                        open_source(&shared, &source_of(&file), true, 0.0);
                     }
                 },
             );
@@ -147,11 +195,7 @@ fn setup_actions(app: &adw::Application, shared: &Shared) {
     let play_pause = gtk::gio::SimpleAction::new("play-pause", None);
     play_pause.connect_activate({
         let shared = shared.clone();
-        move |_, _| {
-            if let Err(err) = shared.engine.toggle_play() {
-                tracing::warn!(%err, "play/pause failed");
-            }
-        }
+        move |_, _| toggle_playback(&shared)
     });
     app.add_action(&play_pause);
 
@@ -262,18 +306,97 @@ pub(crate) fn source_of(file: &gtk::gio::File) -> String {
     }
 }
 
-pub(crate) fn open_source(shared: &Shared, path: &str) {
-    tracing::info!(path, "opening source");
-    shared.state.borrow_mut().set_source(path);
-    if let Err(err) = shared.engine.open(path) {
+/// Load a source. `autoplay` decides whether it starts playing or waits for
+/// the play button; `starts_at` is the position to jump to once it has loaded
+/// (0 = the beginning), and the position the last-played record keeps.
+pub(crate) fn open_source(shared: &Shared, path: &str, autoplay: bool, starts_at: f64) {
+    let starts_at = starts_at.max(0.0);
+    tracing::info!(path, autoplay, starts_at, "opening source");
+    {
+        let mut state = shared.state.borrow_mut();
+        state.set_source(path);
+        // Record the play state the engine is about to be told, so the button
+        // shows the right shape before mpv's `pause` event arrives.
+        state.set_play_state(!autoplay);
+    }
+    if let Err(err) = shared.engine.open(path, autoplay) {
         tracing::error!(%err, path, "open failed");
         toast(shared, &format!("Could not open {path}: {err}"));
         return;
     }
+    // The seek is queued for the `Loaded` event (a seek needs a loaded file,
+    // and the load itself is deferred until the render context is attached).
+    shared.resume_at.set(starts_at);
+    // Recorded at once: even a player that dies before it plays should reopen
+    // this title on the next start.
+    save_last_played(shared, starts_at);
     let title = shared.state.borrow().title();
     let window = shared.window.borrow().clone();
     if let (Some(title), Some(win)) = (title, window) {
         win.set_title(Some(&title));
+    }
+}
+
+/// Space, and the button in the middle of the video.
+///
+/// With nothing loaded — the state the player starts in — this is the button
+/// that starts the last title the player had, at the position it stopped at.
+///
+/// A title that ran to its end starts over: `keep-open=always` leaves mpv
+/// holding the last frame, and resuming there would end again immediately.
+/// (Only while paused — with `keep-open-pause=no` a title can sit at EOF
+/// still "playing", where the button means pause.)
+fn toggle_playback(shared: &Shared) {
+    if shared.state.borrow().source.is_none()
+        && let Some(entry) = shared.pending.borrow_mut().take()
+    {
+        tracing::info!(
+            source = %entry.source,
+            position = entry.position,
+            "play: starting the last played title"
+        );
+        open_source(shared, &entry.source, true, entry.position);
+        return;
+    }
+    let restart = {
+        let state = shared.state.borrow();
+        state.ended && state.paused
+    };
+    let result = if restart {
+        tracing::info!("title ended: play starts it over from 0:00");
+        {
+            let mut state = shared.state.borrow_mut();
+            state.ended = false;
+            state.position = 0.0;
+        }
+        shared.engine.seek(0.0).and_then(|()| shared.engine.set_paused(false))
+    } else {
+        shared.engine.toggle_play()
+    };
+    if let Err(err) = result {
+        tracing::warn!(%err, "play/pause failed");
+    }
+}
+
+/// The position worth recording for the current title: 0 when it is at its
+/// end, so the next start plays it again instead of opening on a still frame.
+fn resume_point(state: &PlaybackState) -> f64 {
+    let position = state.position.max(0.0);
+    let at_end = state.ended
+        || (state.duration > 0.0 && state.duration - position < NEAR_END_SECS);
+    if at_end { 0.0 } else { position }
+}
+
+/// Writes the last-played record for the current title. A failure is logged
+/// and forgotten: an unwritable config directory must never get in the way
+/// of playing something.
+fn save_last_played(shared: &Shared, position: f64) {
+    let Some(source) = shared.state.borrow().source.clone() else {
+        return;
+    };
+    shared.last_saved.set(gtk::glib::monotonic_time() / 1000);
+    if let Err(err) = last_played::save(&LastPlayed { source, position: position.max(0.0) }) {
+        tracing::warn!(%err, "could not write the last-played record");
     }
 }
 
@@ -306,6 +429,15 @@ fn start_event_pump(shared: &Shared) {
                             {
                                 win.set_title(Some(&title));
                             }
+                            // The position `open_source` queued, if any — this is
+                            // the first moment a seek is legal.
+                            let resume = shared.resume_at.replace(0.0);
+                            if resume > 0.0 {
+                                state.position = resume;
+                                if let Err(err) = shared.engine.seek(resume) {
+                                    tracing::warn!(%err, "resume seek failed");
+                                }
+                            }
                         }
                         PlayerEvent::Failed { message, .. } => {
                             toast(&shared, &format!("Playback failed: {message}"));
@@ -320,6 +452,17 @@ fn start_event_pump(shared: &Shared) {
                     controls.set_chapters(&shared.engine.chapters());
                 }
                 controls.refresh(&shared.state.borrow());
+            }
+            // Keep the record current while something is playing, so a player
+            // that is killed (not closed) still reopens where it left off.
+            let playing = {
+                let state = shared.state.borrow();
+                state.source.is_some() && !state.paused
+            };
+            let now = gtk::glib::monotonic_time() / 1000;
+            if playing && now - shared.last_saved.get() >= LAST_PLAYED_REFRESH_MS {
+                let position = resume_point(&shared.state.borrow());
+                save_last_played(&shared, position);
             }
             gtk::glib::ControlFlow::Continue
         }

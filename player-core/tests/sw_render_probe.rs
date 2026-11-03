@@ -127,7 +127,7 @@ fn software_render_produces_video_frames() {
 
     let engine = MpvEngine::video().expect("video engine init");
     engine.inner().attach_sw_render(|| {}).expect("sw render attach");
-    engine.open(path.to_str().unwrap()).expect("open");
+    engine.open(path.to_str().unwrap(), true).expect("open");
 
     let deadline = Instant::now() + Duration::from_secs(10);
     let mut loaded = false;

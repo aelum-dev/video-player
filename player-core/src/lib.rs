@@ -5,6 +5,7 @@
 //! the mpv binding (`mpv-engine`) stays hidden behind [`MpvEngine`].
 
 pub mod engine;
+pub mod last_played;
 pub mod plugin;
 pub mod state;
 
@@ -12,5 +13,6 @@ pub use engine::{
     Chapter, EndReason, MpvEngine, PlaybackEngine, PlayerEvent, PropertyFormat, PropertyValue,
     parse_chapters,
 };
+pub use last_played::LastPlayed;
 pub use plugin::{PlayerPlugin, PluginContext, PluginRegistry};
 pub use state::PlaybackState;

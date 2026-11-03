@@ -66,7 +66,7 @@ pub struct Controls {
     fullscreen_button: gtk::Button,
     /// Big play/pause button (icon only, no background) floating in the
     /// middle of the video;
-    /// revealed exactly while playback is paused.
+    /// revealed whenever the controls are.
     center: gtk::Revealer,
     center_button: gtk::Button,
     /// True while the user owns the seek slider (drag or arrows): the pump must
@@ -132,9 +132,10 @@ impl Controls {
 
     /// Runs on the idle tick: fade out when the pointer has been still for a
     /// while and nothing is being interacted with. Stays up while paused —
-    /// that is when people reach for the controls.
-    fn idle_tick(&self, paused: bool) {
-        if !self.revealed.get() || self.busy() || paused {
+    /// that is when people reach for the controls, and at startup (nothing
+    /// loaded) the play button is the one thing the window is offering.
+    fn idle_tick(&self, state: &PlaybackState) {
+        if !self.revealed.get() || self.busy() || state.paused {
             return;
         }
         if Self::now_ms() - self.last_motion.get() < IDLE_HIDE_MS {
@@ -446,10 +447,11 @@ struct PlayBar {
 /// background). It rides with
 /// the floating controls (see `Controls::set_revealed`): visible while the
 /// user is interacting or paused, faded out on idle. Its icon tracks the play
-/// state.
+/// state, and it starts as a play triangle — the player opens with nothing
+/// loaded and this button is the control that starts something.
 fn build_center() -> (gtk::Revealer, gtk::Button) {
     let button = gtk::Button::builder()
-        .icon_name(Controls::play_icon(false))
+        .icon_name(Controls::play_icon(true))
         .action_name("app.play-pause")
         .build();
     button.add_css_class("flat");
@@ -474,7 +476,7 @@ fn open_dropped(shared: &Shared, controls: &Controls, files: &[gtk::gio::File]) 
     };
     let source = crate::source_of(first);
     tracing::info!(%source, count = files.len(), "dropped files");
-    crate::open_source(shared, &source);
+    crate::open_source(shared, &source, true, 0.0);
     if files.len() > 1 {
         crate::toast(
             shared,
@@ -722,7 +724,7 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
         let controls = controls.clone();
         let state = shared.state.clone();
         move || {
-            controls.idle_tick(state.borrow().paused);
+            controls.idle_tick(&state.borrow());
             glib::ControlFlow::Continue
         }
     });

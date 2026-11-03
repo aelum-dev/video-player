@@ -38,7 +38,7 @@ fn loads_a_file_and_reports_events() {
     write_silent_wav(&path);
 
     let engine = MpvEngine::silent().expect("engine init");
-    engine.open(path.to_str().unwrap()).expect("open");
+    engine.open(path.to_str().unwrap(), true).expect("open");
 
     let deadline = Instant::now() + Duration::from_secs(10);
     let mut loaded = false;
@@ -63,4 +63,52 @@ fn loads_a_file_and_reports_events() {
     assert!(loaded, "mpv never emitted Loaded");
     assert!(position.is_some(), "time-pos never advanced");
     assert!(duration.is_some(), "duration never reported");
+}
+
+/// The cold-start path: the first title a session opens is loaded paused, so
+/// the front-end's play button is the deliberate start.
+#[test]
+fn a_title_opened_without_autoplay_waits_paused_on_its_first_frame() {
+    let dir = std::env::temp_dir().join("player-core-test");
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("silence-paused.wav");
+    write_silent_wav(&path);
+
+    let engine = MpvEngine::silent().expect("engine init");
+    engine.open(path.to_str().unwrap(), false).expect("open");
+
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let mut loaded = false;
+    while Instant::now() < deadline && !loaded {
+        for event in engine.pump_events() {
+            match &event {
+                PlayerEvent::Loaded => loaded = true,
+                PlayerEvent::Failed { message, .. } => panic!("playback failed: {message}"),
+                _ => {}
+            }
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    assert!(loaded, "mpv never emitted Loaded");
+
+    assert!(engine.is_paused(), "the play button would show pause bars, not play");
+    assert!(engine.position().unwrap_or(0.0) < 0.5, "a paused load must not play on");
+
+    // Pressing play is what starts it.
+    engine.set_paused(false).expect("unpause");
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let mut position = None;
+    while Instant::now() < deadline && position.is_none() {
+        for event in engine.pump_events() {
+            if let PlayerEvent::Property { name, value } = event
+                && name == "time-pos"
+                && let PropertyValue::Double(v) = value
+                && v > 0.0
+            {
+                position = Some(v);
+            }
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    assert!(position.is_some(), "play did not start the title");
 }
