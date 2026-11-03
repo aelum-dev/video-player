@@ -72,6 +72,34 @@ pub trait PlaybackEngine: Send + Sync {
     fn pump_events(&self) -> Vec<PlayerEvent>;
 }
 
+/// Enable reading the user's mpv configuration — `~/.config/mpv/mpv.conf`
+/// (plus its `input.conf` and `scripts/`; mpv's default config dir, we
+/// never set `config-dir`). Must be set before `build()`: config loading
+/// happens inside `mpv_initialize`. (`config-file` is not an option in
+/// mpv 0.41 — `config` alone gates `mpv.conf`; setting it fails with
+/// OPTION_NOT_FOUND.)
+///
+/// Precedence note, verified against mpv 0.41: the config file is applied
+/// during init and *overrides* pre-init builder settings — an `mpv.conf`
+/// `vo=gpu-next` beats a pre-init `vo=libmpv`. So the options the app
+/// itself depends on are re-asserted after `build()`; see
+/// [`reassert_app_options`].
+fn user_config(builder: mpv_engine::EngineBuilder) -> mpv_engine::EngineBuilder {
+    builder.property("config", "yes")
+}
+
+/// Re-assert the options the app depends on, after the config file has
+/// had its say (see [`user_config`] for why pre-init setting is not
+/// enough). Setting `vo` at runtime is safe before any load — the VO is
+/// only built at loadfile time, so the config's `vo` never opens a
+/// window. Everything else the user wrote — hwdec, scaling, subtitles,
+/// alang, … — stays exactly as written.
+fn reassert_app_options(engine: &mpv_engine::Engine, vo: &str) -> Result<()> {
+    engine.set_property("vo", vo)?;
+    engine.set_property("keep-open", "always")?;
+    Ok(())
+}
+
 /// `PlaybackEngine` implemented over `mpv-engine`.
 pub struct MpvEngine {
     inner: Arc<mpv_engine::Engine>,
@@ -94,23 +122,31 @@ impl MpvEngine {
 
     /// Video engine (`vo=libmpv`): frames appear once a render context is
     /// attached — used from Milestone 2 by `player-video`.
+    ///
+    /// Reads the user's `~/.config/mpv/mpv.conf` (see [`user_config`]).
     pub fn video() -> Result<Self> {
+        let engine = user_config(mpv_engine::Engine::video()).build()?;
+        reassert_app_options(&engine, "libmpv")?;
         // mpv's own OSD would double up with the front-end's controls
         // (time/position text over the video), so it stays off; the UI owns
         // all on-screen feedback.
-        let engine = mpv_engine::Engine::video()
-            .property("osd-level", "0")
-            .build()?;
+        engine.set_property("osd-level", "0")?;
         Self::from_engine(engine)
     }
 
     /// Audio-only / headless engine (`vo=null`): loads play immediately.
     /// This is what Milestone 1 runs with.
+    ///
+    /// Reads the user's `~/.config/mpv/mpv.conf` (see [`user_config`]).
     pub fn headless() -> Result<Self> {
-        Self::from_engine(mpv_engine::Engine::headless().build()?)
+        let engine = user_config(mpv_engine::Engine::headless()).build()?;
+        reassert_app_options(&engine, "null")?;
+        Self::from_engine(engine)
     }
 
     /// Headless with `ao=null` as well: no audio device required (tests).
+    /// Deliberately skips the user config — tests must not change behavior
+    /// with whatever happens to be in `~/.config/mpv/`.
     pub fn silent() -> Result<Self> {
         Self::from_engine(
             mpv_engine::Engine::headless()
