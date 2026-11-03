@@ -84,9 +84,7 @@ fn main() -> gtk::glib::ExitCode {
         move |app, files, _hint| {
             ensure_window(app, &shared);
             for file in files {
-                if let Some(path) = file.path() {
-                    open_source(&shared, &path.to_string_lossy());
-                }
+                open_source(&shared, &source_of(file));
             }
         }
     });
@@ -132,21 +130,13 @@ fn setup_actions(app: &adw::Application, shared: &Shared) {
                         // (no local path), and mpv only understands paths and
                         // URLs it can open itself.
                         let uri: String = file.uri().into();
-                        let local = file.path();
                         tracing::info!(
                             %uri,
                             native = file.is_native(),
-                            local = ?local,
+                            local = ?file.path(),
                             "file chooser selection"
                         );
-                        let source = match local {
-                            Some(p) => p.to_string_lossy().into_owned(),
-                            None => {
-                                tracing::warn!(%uri, "selection has no local path, passing the URI to mpv");
-                                uri
-                            }
-                        };
-                        open_source(&shared, &source);
+                        open_source(&shared, &source_of(&file));
                     }
                 },
             );
@@ -258,7 +248,21 @@ fn setup_actions(app: &adw::Application, shared: &Shared) {
     app.set_accels_for_action("app.fullscreen", &["f", "F11"]);
 }
 
-fn open_source(shared: &Shared, path: &str) {
+/// The string mpv should open for a chosen or dropped `GFile`: a local path
+/// when there is one, otherwise the URI — document-portal picks and dragged
+/// links have no local path, and mpv understands `file://` and plain URLs.
+pub(crate) fn source_of(file: &gtk::gio::File) -> String {
+    match file.path() {
+        Some(p) => p.to_string_lossy().into_owned(),
+        None => {
+            let uri: String = file.uri().into();
+            tracing::warn!(%uri, "no local path, passing the URI to mpv");
+            uri
+        }
+    }
+}
+
+pub(crate) fn open_source(shared: &Shared, path: &str) {
     tracing::info!(path, "opening source");
     shared.state.borrow_mut().set_source(path);
     if let Err(err) = shared.engine.open(path) {
@@ -273,7 +277,7 @@ fn open_source(shared: &Shared, path: &str) {
     }
 }
 
-fn toast(shared: &Shared, text: &str) {
+pub(crate) fn toast(shared: &Shared, text: &str) {
     if let Some(overlay) = shared.toasts.borrow().as_ref() {
         overlay.add_toast(adw::Toast::new(text));
     }

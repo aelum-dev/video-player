@@ -3,7 +3,9 @@
 //! The window content is a `gtk::Overlay`: the video surface is the main child,
 //! and the header / playback bar are overlay children that fade out when the
 //! pointer has been idle, mpv-style. Every control acts through
-//! `player_core`'s engine trait — never on mpv directly.
+//! `player_core`'s engine trait — never on mpv directly. Files dragged onto
+//! the window open too (a `DropTarget` on the window; see the drop section in
+//! `build_window`).
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -428,6 +430,30 @@ fn build_center() -> (gtk::Revealer, gtk::Button) {
     (revealer, button)
 }
 
+/// Open the files carried by a drop: the first one plays, the rest are
+/// reported (there is no playlist yet). Returns whether the drop was handled.
+fn open_dropped(shared: &Shared, controls: &Controls, files: &[gtk::gio::File]) -> bool {
+    let Some(first) = files.first() else {
+        return false;
+    };
+    let source = crate::source_of(first);
+    tracing::info!(%source, count = files.len(), "dropped files");
+    crate::open_source(shared, &source);
+    if files.len() > 1 {
+        crate::toast(
+            shared,
+            &format!(
+                "Playing the first of {} dropped files (no playlist yet)",
+                files.len()
+            ),
+        );
+    }
+    // A DND drag delivers no motion events, so the idle timer may have hidden
+    // the controls while the drop was in flight.
+    controls.poke();
+    true
+}
+
 /// Build the window: video surface with the controls floating over it.
 pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::ApplicationWindow {
     let window = adw::ApplicationWindow::new(app);
@@ -604,6 +630,20 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
     // Last: the center button sits above the bars if they ever overlap.
     overlay.add_overlay(&center);
 
+    // Drop feedback: a dashed frame and a hint drawn *over* the video (topmost
+    // overlay child), hidden until a file drag enters the window. A window-
+    // level CSS outline would not do: the GLArea paints over it.
+    let drop_hint = gtk::Label::builder()
+        .label("Drop to play")
+        .xalign(0.5)
+        .yalign(0.5)
+        .build();
+    drop_hint.add_css_class("drop-hint");
+    drop_hint.set_halign(gtk::Align::Fill);
+    drop_hint.set_valign(gtk::Align::Fill);
+    drop_hint.set_visible(false);
+    overlay.add_overlay(&drop_hint);
+
     let toasts = adw::ToastOverlay::new();
     toasts.set_child(Some(&overlay));
     window.set_content(Some(&toasts));
@@ -689,6 +729,54 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
         });
     }
     video.add_controller(dbl);
+
+    // Drag & drop: dropping files anywhere on the window opens them. The
+    // target type is `gdk::FileList` — GTK's own representation of
+    // `text/uri-list` — so a file-manager drag (one file or many) and a
+    // dragged link all arrive as a list of GFiles, and non-file drags never
+    // reach the handlers: the target rejects them by format.
+    //
+    // Advertise COPY *and* MOVE: what a source offers is its own choice —
+    // Nautilus drags here as MOVE-only, and a COPY-only target fails the
+    // action negotiation before the drop signal ever fires (the silent
+    // "nothing happens" first attempt). `enter` must answer with a single
+    // action from the intersection; the default handler computes exactly
+    // that, so mirror it rather than hard-coding COPY.
+    let drop = gtk::DropTarget::new(
+        gtk::gdk::FileList::static_type(),
+        gtk::gdk::DragAction::COPY | gtk::gdk::DragAction::MOVE,
+    );
+    {
+        let hint = drop_hint.clone();
+        drop.connect_enter(move |target, _x, _y| {
+            hint.set_visible(true);
+            let offered = target
+                .current_drop()
+                .map(|d| d.actions())
+                .unwrap_or(gtk::gdk::DragAction::COPY);
+            for action in [
+                gtk::gdk::DragAction::COPY,
+                gtk::gdk::DragAction::MOVE,
+                gtk::gdk::DragAction::LINK,
+            ] {
+                if offered.contains(action) {
+                    return action;
+                }
+            }
+            gtk::gdk::DragAction::MOVE
+        });
+        let hint = drop_hint.clone();
+        drop.connect_leave(move |_| hint.set_visible(false));
+        let (shared, controls) = (shared.clone(), controls.clone());
+        drop.connect_drop(move |_target, value, _x, _y| {
+            drop_hint.set_visible(false);
+            let Ok(list) = value.get_owned::<gtk::gdk::FileList>() else {
+                return false;
+            };
+            open_dropped(&shared, &controls, &list.files())
+        });
+    }
+    window.add_controller(drop);
 
     // Keep the fullscreen button's icon honest.
     window.connect_fullscreened_notify({
