@@ -232,11 +232,6 @@ fn build_header(window: &adw::ApplicationWindow) -> (gtk::Revealer, gtk::Label) 
     let menu_model = gtk::gio::Menu::new();
     menu_model.append(Some("Open media…"), Some("app.open"));
     menu_model.append(Some("Fullscreen"), Some("app.fullscreen"));
-    let appearance = gtk::gio::Menu::new();
-    appearance.append(Some("Follow System"), Some("app.theme::\"default\""));
-    appearance.append(Some("Light"), Some("app.theme::\"light\""));
-    appearance.append(Some("Dark"), Some("app.theme::\"dark\""));
-    menu_model.append_section(Some("Appearance"), &appearance);
     menu_model.append(Some("Quit"), Some("app.quit"));
     let menu = gtk::MenuButton::builder()
         .icon_name("open-menu-symbolic")

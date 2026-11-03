@@ -39,6 +39,8 @@ struct Shared {
 }
 
 fn main() -> gtk::glib::ExitCode {
+    isolate_user_gtk_css();
+
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
         .init();
@@ -57,7 +59,12 @@ fn main() -> gtk::glib::ExitCode {
         controls: Rc::new(RefCell::new(None)),
     };
 
-    app.connect_startup(move |_| setup_css());
+    app.connect_startup(move |_| {
+        setup_css();
+        // Dark chrome only: no light mode anywhere. Without this the menus
+        // and popovers would follow the system setting (light on this box).
+        adw::StyleManager::default().set_color_scheme(adw::ColorScheme::ForceDark);
+    });
     app.connect_activate({
         let shared = shared.clone();
         move |app| ensure_window(app, &shared)
@@ -80,6 +87,40 @@ fn main() -> gtk::glib::ExitCode {
     app.run()
 }
 
+/// GTK4 always loads `~/.config/gtk-4.0/gtk.css` at USER priority — above
+/// the libadwaita theme, so a personal palette (this box has a Matugen/DMS
+/// override redefining libadwaita's own `@define-color` names like
+/// `popover_bg_color`) silently beats `ForceDark`. The app is dark-only,
+/// so the automatic load is disabled: `XDG_CONFIG_HOME` is pointed at a
+/// private dir carrying symlinks to the non-color config (`settings.ini`
+/// for the icon theme, `fontconfig` for fonts). The user palette is then
+/// applied *conditionally* by `maybe_load_user_palette` — GTK never finds
+/// a user `gtk.css`. Must run before GTK opens a display and before glib
+/// caches the config dirs — hence the raw `$HOME`, no `glib::user_config_dir()`.
+fn isolate_user_gtk_css() {
+    let Ok(home) = std::env::var("HOME") else {
+        return;
+    };
+    let real = std::path::Path::new(&home).join(".config");
+    let private = std::path::Path::new(&home)
+        .join(".local/share/dev.mpvgtk.Player/gtk-config");
+    if std::fs::create_dir_all(private.join("gtk-4.0")).is_err() {
+        return;
+    }
+    for rel in ["gtk-4.0/settings.ini", "fontconfig"] {
+        let src = real.join(rel);
+        if !src.exists() {
+            continue;
+        }
+        let dst = private.join(rel);
+        let _ = std::fs::remove_file(&dst);
+        let _ = std::os::unix::fs::symlink(&src, &dst);
+    }
+    // Safe: first thing in `main`, single-threaded, before any library
+    // reads the environment.
+    unsafe { std::env::set_var("XDG_CONFIG_HOME", &private) };
+}
+
 fn setup_css() {
     let provider = gtk::CssProvider::new();
     // One load: each `load_from_*` on a provider *replaces* the previous
@@ -91,13 +132,122 @@ fn setup_css() {
         "../data/style.css"
     )));
     if let Some(display) = gtk::gdk::Display::default() {
-        #[allow(deprecated)]
-        gtk::StyleContext::add_provider_for_display(
+        gtk::style_context_add_provider_for_display(
             &display,
             &provider,
             gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
         );
+        // The user palette goes in a SECOND provider added after ours: a
+        // second `load_from_*` on the same provider would *replace* our
+        // styles (the sizing-dropping gotcha). Same priority + later add
+        // = its `@define-color` palette wins over libadwaita's.
+        if let Some(palette) = user_palette_provider() {
+            gtk::style_context_add_provider_for_display(
+                &display,
+                &palette,
+                gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+            );
+        }
     }
+}
+
+/// This player is the distro's player: it should wear the user's matugen
+/// palette, not stock Adwaita. The palette file is only honored while its
+/// current variant is *dark* (the app is dark-only; a light variant would
+/// clash with the always-dark controls) — when DMS/matugen regenerates it
+/// light, the app falls back to libadwaita's dark palette. `load_from_path`
+/// keeps relative `@import`s resolving against the user's file.
+/// (A palette change needs an app restart; DMS rewrites the file on switch.)
+fn user_palette_provider() -> Option<gtk::CssProvider> {
+    let home = std::env::var("HOME").ok()?;
+    let user_css = std::path::Path::new(&home).join(".config/gtk-4.0/gtk.css");
+    if !user_css.is_file() {
+        return None;
+    }
+    let text = read_css_chain(&user_css)?;
+    if !user_palette_is_dark(&text) {
+        tracing::info!("user GTK palette is light; keeping libadwaita dark");
+        return None;
+    }
+    let provider = gtk::CssProvider::new();
+    provider.load_from_path(&user_css);
+    tracing::info!("using user GTK palette (dark variant)");
+    Some(provider)
+}
+
+/// The user's `gtk.css` plus the files it `@import`s (one level - the
+/// matugen/DMS layout).
+fn read_css_chain(path: &std::path::Path) -> Option<String> {
+    let mut text = std::fs::read_to_string(path).ok()?;
+    let dir = path.parent()?;
+    let imports: Vec<String> = text
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("@import").map(str::to_owned))
+        .collect();
+    for rest in imports {
+        let Some(start) = rest.find('"').or_else(|| rest.find('\'')) else {
+            continue;
+        };
+        let quote = rest.as_bytes()[start] as char;
+        let Some(end) = rest[start + 1..].find(quote) else {
+            continue;
+        };
+        let target = dir.join(&rest[start + 1..start + 1 + end]);
+        if let Ok(extra) = std::fs::read_to_string(&target) {
+            text.push('\n');
+            text.push_str(&extra);
+        }
+    }
+    Some(text)
+}
+
+/// Decide from the palette's own background colors: the last
+/// `window_bg_color`/`popover_bg_color` hex definition wins (CSS order);
+/// luma below the midpoint means dark. No background defined at all →
+/// treat as dark (the file cannot make the light chrome appear).
+fn user_palette_is_dark(css: &str) -> bool {
+    let hex = ["window_bg_color", "popover_bg_color"]
+        .iter()
+        .find_map(|name| last_hex_define(css, name));
+    match hex {
+        Some((r, g, b)) => 0.299 * f64::from(r) + 0.587 * f64::from(g) + 0.114 * f64::from(b) < 128.0,
+        None => true,
+    }
+}
+
+/// Last `@define-color <name> #rgb|#rrggbb;` in the text.
+fn last_hex_define(css: &str, name: &str) -> Option<(u8, u8, u8)> {
+    let needle = format!("@define-color {name}");
+    let mut found = None;
+    let mut from = 0;
+    while let Some(rel) = css[from..].find(&needle) {
+        let at = from + rel + needle.len();
+        let rest = css[at..].trim_start();
+        let mut chars = rest.chars();
+        if chars.next() == Some('#') {
+            let digits: String = chars.take_while(|c| c.is_ascii_hexdigit()).collect();
+            let rgb = if digits.len() == 3 {
+                Some((
+                    u8::from_str_radix(&digits[0..1], 16).ok()? * 17,
+                    u8::from_str_radix(&digits[1..2], 16).ok()? * 17,
+                    u8::from_str_radix(&digits[2..3], 16).ok()? * 17,
+                ))
+            } else if digits.len() >= 6 {
+                Some((
+                    u8::from_str_radix(&digits[0..2], 16).ok()?,
+                    u8::from_str_radix(&digits[2..4], 16).ok()?,
+                    u8::from_str_radix(&digits[4..6], 16).ok()?,
+                ))
+            } else {
+                None
+            };
+            if rgb.is_some() {
+                found = rgb;
+            }
+        }
+        from = at;
+    }
+    found
 }
 
 fn ensure_window(app: &adw::Application, shared: &Shared) {
@@ -235,29 +385,6 @@ fn setup_actions(app: &adw::Application, shared: &Shared) {
     });
     app.add_action(&fullscreen);
 
-    // Appearance: follow the system (the default), or force light/dark.
-    // The three menu items share this action with different targets, so
-    // GTK renders them as a radio group with the current choice checked.
-    // `ColorScheme::Default` keeps `AdwStyleManager` following the
-    // xdg-desktop-portal appearance setting; the split stylesheets react
-    // to the `.dark`/`.light` window class it maintains.
-    let theme = gtk::gio::SimpleAction::new_stateful(
-        "theme",
-        Some(gtk::glib::VariantTy::STRING),
-        &"default".to_variant(),
-    );
-    theme.connect_change_state(|action, target| {
-        let Some(target) = target else { return };
-        let scheme = match target.str().unwrap_or("default") {
-            "light" => adw::ColorScheme::ForceLight,
-            "dark" => adw::ColorScheme::ForceDark,
-            _ => adw::ColorScheme::Default,
-        };
-        adw::StyleManager::default().set_color_scheme(scheme);
-        action.set_state(&target.to_variant());
-    });
-    app.add_action(&theme);
-
     let quit = gtk::gio::SimpleAction::new("quit", None);
     quit.connect_activate({
         let app = app.clone();
@@ -346,4 +473,48 @@ fn start_event_pump(shared: &Shared) {
             gtk::glib::ControlFlow::Continue
         }
     });
+}
+
+#[cfg(test)]
+mod theme_tests {
+    use super::{last_hex_define, user_palette_is_dark};
+
+    const DARK: &str = r#"
+        @define-color window_bg_color #0f0d12;
+        @define-color popover_bg_color #1b181f;
+    "#;
+
+    const LIGHT: &str = r#"
+        @define-color window_bg_color #fff7f9;
+        @define-color popover_bg_color #f9eaf1;
+    "#;
+
+    #[test]
+    fn dark_palette_is_detected() {
+        assert!(user_palette_is_dark(DARK));
+    }
+
+    #[test]
+    fn light_palette_is_detected() {
+        assert!(!user_palette_is_dark(LIGHT));
+    }
+
+    #[test]
+    fn last_definition_wins() {
+        let css = format!("{LIGHT}\n@define-color window_bg_color #000000;");
+        assert!(user_palette_is_dark(&css));
+    }
+
+    #[test]
+    fn short_hex_and_named_colors_parse() {
+        assert_eq!(last_hex_define(DARK, "window_bg_color"), Some((15, 13, 18)));
+        assert_eq!(
+            last_hex_define("@define-color x #abc;", "x"),
+            Some((0xaa, 0xbb, 0xcc))
+        );
+        // A reference, not a hex: no value, so the palette stays "dark" by
+        // default rather than guessing a light chrome.
+        assert_eq!(last_hex_define("@define-color x @window_bg_color;", "x"), None);
+        assert!(user_palette_is_dark("@define-color accent_bg_color #cdc0ec;"));
+    }
 }
