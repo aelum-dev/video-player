@@ -79,6 +79,17 @@ impl Controls {
         glib::monotonic_time() / 1000
     }
 
+    /// Icon for the play/pause buttons: the action the click performs —
+    /// pause bars while playing, play triangle while paused.
+    fn play_icon(paused: bool) -> &'static str {
+        if paused {
+            "media-playback-start-symbolic"
+        } else {
+            "media-playback-pause-symbolic"
+        }
+    }
+
+
     fn set_revealed(&self, on: bool) {
         if self.revealed.get() == on {
             return;
@@ -130,18 +141,12 @@ impl Controls {
 
     /// Sync every control from the folded playback state.
     pub fn refresh(&self, state: &PlaybackState) {
-        self.play_button.set_icon_name(if state.paused {
-            "media-playback-start-symbolic"
-        } else {
-            "media-playback-pause-symbolic"
-        });
+        // The icon shows the action the click performs: pause bars while
+        // playing, play triangle while paused.
+        self.play_button.set_icon_name(Self::play_icon(state.paused));
         // The center button mirrors the play state with its icon; its
         // visibility follows the controls (see `set_revealed`).
-        self.center_button.set_icon_name(if state.paused {
-            "media-playback-start-symbolic"
-        } else {
-            "media-playback-pause-symbolic"
-        });
+        self.center_button.set_icon_name(Self::play_icon(state.paused));
         self.time_label
             .set_text(&format::clock(state.position));
         self.duration_label
@@ -252,8 +257,10 @@ fn build_playbar(shared: &Shared) -> (gtk::Revealer, PlayBar) {
     bar.add_css_class("floating-bar");
     bar.add_css_class("floating-playbar");
 
+    // Start on the icon for the default state (playing): pause bars, i.e.
+    // "click to pause". `refresh` keeps it in step with the play state.
     let play_button = flat_button(
-        "media-playback-start-symbolic",
+        Controls::play_icon(false),
         Some("app.play-pause"),
         "Play/pause (Space)",
    );
@@ -392,7 +399,7 @@ struct PlayBar {
 /// state.
 fn build_center() -> (gtk::Revealer, gtk::Button) {
     let button = gtk::Button::builder()
-        .icon_name("media-playback-start-symbolic")
+        .icon_name(Controls::play_icon(false))
         .action_name("app.play-pause")
         .build();
     button.add_css_class("center-play");

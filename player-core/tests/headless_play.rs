@@ -39,8 +39,6 @@ fn loads_a_file_and_reports_events() {
 
     let engine = MpvEngine::silent().expect("engine init");
     engine.open(path.to_str().unwrap()).expect("open");
-    // `open` starts paused by design; this test exercises playback progress.
-    engine.set_paused(false).expect("unpause");
 
     let deadline = Instant::now() + Duration::from_secs(10);
     let mut loaded = false;

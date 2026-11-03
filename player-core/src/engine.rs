@@ -41,9 +41,9 @@ pub struct Chapter {
 ///
 /// Volume is in mpv percent (0..100+), times in seconds.
 pub trait PlaybackEngine: Send + Sync {
-    /// Load a file path or URL. Playback starts *paused*: the front-end
-    /// shows its play button and the user starts playback deliberately.
-    /// Opening a new file always resets to that state.
+    /// Load a file path or URL and start playback. Opening a new file
+    /// always resets to the playing state, even if the previous title was
+    /// paused.
     fn open(&self, source: &str) -> Result<()>;
     fn set_paused(&self, paused: bool) -> Result<()>;
     fn is_paused(&self) -> bool;
@@ -136,10 +136,10 @@ impl MpvEngine {
 
 impl PlaybackEngine for MpvEngine {
     fn open(&self, source: &str) -> Result<()> {
-        // mpv would auto-play on load; every title starts paused instead
-        // (the play button is the deliberate start), and opening a new
-        // file resets the play state even if the previous one was playing.
-        self.inner.set_paused(true)?;
+        // mpv keeps the `pause` property across file changes, so a title
+        // opened while paused would start paused. Reset to playing: opening
+        // a new video always starts it.
+        self.inner.set_paused(false)?;
         self.inner.load_when_ready(source)?;
         Ok(())
     }
