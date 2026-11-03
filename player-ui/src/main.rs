@@ -165,11 +165,11 @@ fn setup_actions(app: &adw::Application, shared: &Shared) {
 
     // Parameterised with the offset in seconds, so the accels can be
     // `app.seek-rel(-5)` and `app.seek-rel(5)`.
-    let seek_rel = gtk::gio::SimpleAction::new("seek-rel", Some(&i64::static_variant_type()));
+    let seek_rel = gtk::gio::SimpleAction::new("seek-rel", Some(&i32::static_variant_type()));
     seek_rel.connect_activate({
         let shared = shared.clone();
         move |_, parameter| {
-            let secs = parameter.and_then(|p| p.get::<i64>()).unwrap_or(0) as f64;
+            let secs = parameter.and_then(|p| p.get::<i32>()).unwrap_or(0) as f64;
             if let Err(err) = shared.engine.seek_relative(secs) {
                 tracing::warn!(%err, "seek failed");
             }
@@ -189,11 +189,11 @@ fn setup_actions(app: &adw::Application, shared: &Shared) {
         app.add_action(&action);
     }
 
-    let volume_rel = gtk::gio::SimpleAction::new("volume-rel", Some(&i64::static_variant_type()));
+    let volume_rel = gtk::gio::SimpleAction::new("volume-rel", Some(&i32::static_variant_type()));
     volume_rel.connect_activate({
         let shared = shared.clone();
         move |_, parameter| {
-            let delta = parameter.and_then(|p| p.get::<i64>()).unwrap_or(0) as f64;
+            let delta = parameter.and_then(|p| p.get::<i32>()).unwrap_or(0) as f64;
             let target = (shared.state.borrow().volume + delta).clamp(0.0, 130.0);
             if let Err(err) = shared.engine.set_volume(target) {
                 tracing::warn!(%err, "set_volume failed");

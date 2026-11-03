@@ -5,7 +5,7 @@
 //! pointer has been idle, mpv-style. Every control acts through
 //! `player_core`'s engine trait — never on mpv directly.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -27,6 +27,12 @@ const IDLE_TICK_MS: u64 = 500;
 /// Grace before a single click on the video counts as play/pause, so a double
 /// click (fullscreen) can win.
 const CLICK_GRACE_MS: u64 = 250;
+/// Delay between the last slider move and the committed seek: short enough to
+/// feel instant, long enough to let a whole drag run as one seek.
+const SEEK_COMMIT_MS: u64 = 350;
+/// Half of the seek knob (38 px in style.css): click-to-position maps the
+/// track between the knob's edge stops.
+const KNOB_HALF_PX: f64 = 19.0;
 
 /// The widgets the event pump has to keep in sync, plus the idle-hide state.
 #[derive(Clone)]
@@ -402,37 +408,112 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
     let (playbar, bar) = build_playbar(shared);
     let (center, center_button) = build_center();
 
-    // Seek ownership: the user drags, we commit on release (or key release),
-    // and the pump leaves the slider alone in between.
+    // Seek ownership: any user change (drag, keys, click-to-jump below) marks
+    // the slider user-owned and re-arms a short commit timer; the seek is
+    // issued once the user stops moving, and the pump leaves the slider alone
+    // until then.
+    //
+    // No GestureClick here: a capturing gesture on the slider steals the
+    // pointer sequence from the Scale's own drag gesture, and dragging the
+    // knob stops working entirely (the "seek bar not working" bug).
     let seeking = Rc::new(Cell::new(false));
     let seek_target = Rc::new(Cell::new(0.0));
+    let pending_commit: Rc<RefCell<Option<glib::SourceId>>> = Rc::new(RefCell::new(None));
+    let arm_commit = {
+        let engine = shared.engine.clone();
+        let (seeking, seek_target, pending_commit) =
+            (seeking.clone(), seek_target.clone(), pending_commit.clone());
+        Rc::new(move || {
+            if let Some(id) = pending_commit.borrow_mut().take() {
+                id.remove();
+            }
+            let (engine, seeking, seek_target) =
+                (engine.clone(), seeking.clone(), seek_target.clone());
+            let pending_inner = pending_commit.clone();
+            let id = glib::timeout_add_local_once(
+                Duration::from_millis(SEEK_COMMIT_MS),
+                move || {
+                    *pending_inner.borrow_mut() = None;
+                    if seeking.get() {
+                        seeking.set(false);
+                        if let Err(err) = engine.seek(seek_target.get()) {
+                            tracing::warn!(%err, "seek failed");
+                        }
+                    }
+                },
+            );
+            *pending_commit.borrow_mut() = Some(id);
+        })
+    };
     {
         let (seeking, seek_target) = (seeking.clone(), seek_target.clone());
+        let arm_commit = arm_commit.clone();
         bar.seek.connect_change_value(move |_scale, _scroll, value| {
             seeking.set(true);
             seek_target.set(value);
+            arm_commit();
             glib::Propagation::Proceed
         });
     }
     {
+        // Pointer handling on the seek slider, via a legacy controller (it
+        // observes the raw stream without claiming the sequence, so the
+        // Scale's own drag gesture keeps working — a GestureClick here would
+        // steal it, the original "seek bar not working" bug).
+        //
+        // - Press (click or grab): jump to the pressed position immediately.
+        //   A click is a deliberate seek; grabbing the knob maps to ~the
+        //   current position, so it is a no-op there.
+        // - Release: commit the seek to wherever the drag ended, right away.
+        // - The debounce timer stays only as a safety net in case the release
+        //   is never delivered; on a normal release it is cancelled here.
         let engine = shared.engine.clone();
-        let (seeking, seek_target) = (seeking.clone(), seek_target.clone());
         let slider = bar.seek.clone();
-        let commit = Rc::new(move || {
-            if seeking.get() {
-                seeking.set(false);
-                if let Err(err) = engine.seek(seek_target.get()) {
-                    tracing::warn!(%err, "seek failed");
+        let (seeking, seek_target) = (seeking.clone(), seek_target.clone());
+        let (arm_commit, pending_commit) = (arm_commit.clone(), pending_commit.clone());
+        let press = gtk::EventControllerLegacy::new();
+        press.connect_event(move |_ctrl, event| {
+            match event.event_type() {
+                gtk::gdk::EventType::ButtonPress => {
+                    if let Some(button) = event.downcast_ref::<gtk::gdk::ButtonEvent>()
+                        && button.button() == 1
+                        && let Some((x, _)) = event.position()
+                    {
+                        let width = slider.width() as f64;
+                        if width > 2.0 * KNOB_HALF_PX {
+                            let fraction = ((x - KNOB_HALF_PX)
+                                / (width - 2.0 * KNOB_HALF_PX))
+                                .clamp(0.0, 1.0);
+                            let value = slider.adjustment().upper() * fraction;
+                            seeking.set(true);
+                            seek_target.set(value);
+                            slider.set_value(value);
+                            if let Err(err) = engine.seek(value) {
+                                tracing::warn!(%err, "seek failed");
+                            }
+                            arm_commit();
+                        }
+                    }
                 }
+                gtk::gdk::EventType::ButtonRelease => {
+                    if let Some(button) = event.downcast_ref::<gtk::gdk::ButtonEvent>()
+                        && button.button() == 1
+                        && seeking.get()
+                    {
+                        seeking.set(false);
+                        if let Some(id) = pending_commit.borrow_mut().take() {
+                            id.remove();
+                        }
+                        if let Err(err) = engine.seek(seek_target.get()) {
+                            tracing::warn!(%err, "seek failed");
+                        }
+                    }
+                }
+                _ => {}
             }
+            glib::Propagation::Proceed
         });
-        let commit_on_key = commit.clone();
-        let click = gtk::GestureClick::new();
-        click.connect_released(move |_, _, _, _| commit());
-        slider.add_controller(click);
-        let keys = gtk::EventControllerKey::new();
-        keys.connect_key_released(move |_, _, _, _| commit_on_key());
-        slider.add_controller(keys);
+        bar.seek.add_controller(press);
     }
 
     let controls = Controls {
