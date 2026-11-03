@@ -35,6 +35,19 @@ const SEEK_SETTLE_MS: i64 = 400;
 /// track between the knob's edge stops.
 const KNOB_HALF_PX: f64 = 19.0;
 
+/// Double-click pair state machine: `last` is the previous press time
+/// (0 = none). A press within `gap` of it completes a pair: report
+/// `fired` and reset, so a third click starts over instead of chaining
+/// (`GestureClick`'s failure mode: its counter climbs past 2 and the
+/// binding sticks). Returns the new state.
+fn click_pair(last: i64, now: i64, gap: i64) -> (i64, bool) {
+    if last != 0 && now - last <= gap {
+        (0, true)
+    } else {
+        (now, false)
+    }
+}
+
 /// The widgets the event pump has to keep in sync, plus the idle-hide state.
 #[derive(Clone)]
 pub struct Controls {
@@ -642,21 +655,40 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
     // Double-click on the video toggles fullscreen. Play/pause is *not* bound
     // to clicking the video (that was an easy accidental pause); it lives on
     // the center button, the playbar button, and Space.
-    let double = gtk::GestureClick::new();
-    double.set_button(1);
+    //
+    // Manual pair detection, not `GestureClick`: its multi-press counter
+    // keeps climbing while clicks stay inside its timing window (3, 4, 5…),
+    // so `n_press == 2` matches only the first pair and the binding then
+    // appears stuck no matter how often you double-click. A non-claiming
+    // legacy controller plus a timestamp pair is stateless per pair and
+    // always re-arms; the gap honours the `gtk-double-click-time` setting.
+    let dbl = gtk::EventControllerLegacy::new();
     {
         let window_clone = window.clone();
-        double.connect_pressed(move |_, n_press, _, _| {
-            if n_press == 2 {
-                if window_clone.is_fullscreen() {
-                    window_clone.unfullscreen();
-                } else {
-                    window_clone.fullscreen();
+        let last_press = Rc::new(Cell::new(0i64));
+        dbl.connect_event(move |_ctrl, event| {
+            if event.event_type() == gtk::gdk::EventType::ButtonPress
+                && let Some(button) = event.downcast_ref::<gtk::gdk::ButtonEvent>()
+                && button.button() == 1
+            {
+                let now = Controls::now_ms();
+                let gap = gtk::Settings::default()
+                    .map_or(400, |s| s.gtk_double_click_time())
+                    .max(1) as i64;
+                let (state, fired) = click_pair(last_press.get(), now, gap);
+                last_press.set(state);
+                if fired {
+                    if window_clone.is_fullscreen() {
+                        window_clone.unfullscreen();
+                    } else {
+                        window_clone.fullscreen();
+                    }
                 }
             }
+            glib::Propagation::Proceed
         });
     }
-    video.add_controller(double);
+    video.add_controller(dbl);
 
     // Keep the fullscreen button's icon honest.
     window.connect_fullscreened_notify({
@@ -693,4 +725,47 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
 
     window.present();
     window
+}
+
+#[cfg(test)]
+mod tests {
+    use super::click_pair;
+
+    #[test]
+    fn ten_rapid_clicks_never_stick() {
+        // The reported bug: after the first pair, `GestureClick`'s counter
+        // climbed to 3, 4, 5… and no further double click registered.
+        let gap = 400;
+        let mut state = 0;
+        let mut fired = Vec::new();
+        for i in 0..10 {
+            let now = 1000 + i * 100;
+            let (next, hit) = click_pair(state, now, gap);
+            state = next;
+            if hit {
+                fired.push(now);
+            }
+        }
+        // Five clean pairs, spread across the whole burst — not just the first.
+        assert_eq!(fired.len(), 5);
+        assert_eq!(fired[4], 1900);
+    }
+
+    #[test]
+    fn clicks_outside_the_gap_are_singles() {
+        let (state, hit) = click_pair(0, 1000, 400);
+        assert!(!hit);
+        let (state, hit) = click_pair(state, 1600, 400);
+        assert!(!hit);
+        assert_eq!(state, 1600);
+    }
+
+    #[test]
+    fn a_third_click_starts_a_new_pair() {
+        // double + single must not chain into another double.
+        let (state, hit) = click_pair(1000, 1100, 400);
+        assert!(hit && state == 0);
+        let (state, hit) = click_pair(state, 1200, 400);
+        assert!(!hit && state == 1200);
+    }
 }
