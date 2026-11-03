@@ -1,4 +1,16 @@
-/* mpv-gtk application styles */
+/* mpv-gtk application styles.
+ *
+ * The system dark/light scheme (followed via AdwStyleManager, overridable
+ * from the app menu) applies ONLY to the libadwaita chrome: menus,
+ * popovers, dialogs, toasts. The controls floating over the video are
+ * deliberately always dark-styled (white icons on a dark scrim): they sit
+ * on top of video - often black letterbox bars - where themed dark icons
+ * would be invisible.
+ *
+ * To stay readable over bright full-frame video, the header and playbar
+ * carry a dark fade-out gradient that extends beyond the controls into
+ * the video (the extra padding below/above the bars is the fade region).
+ */
 
 /* The video letterbox: mpv clears the FBO with alpha 0 outside the frame,
    so whatever is behind the GLArea shows through. Make it cinema black. */
@@ -10,31 +22,34 @@ window.background.player-window {
     background: black;
 }
 
-/* Controls floating over the video. */
+/* Controls floating over the video. The extra bottom/top padding is the
+   gradient's fade region: the scrim reaches into the video, not just
+   behind the buttons. */
 .floating-bar {
     padding: 12px 16px;
 }
 
 .floating-header {
+    padding-bottom: 56px;
     background-image: linear-gradient(
         to bottom,
-        rgba(0, 0, 0, 0.75),
-        rgba(0, 0, 0, 0.35) 60%,
+        rgba(0, 0, 0, 0.8),
+        rgba(0, 0, 0, 0.45) 50%,
         rgba(0, 0, 0, 0)
     );
 }
 
 .floating-playbar {
+    padding: 56px 20px 16px;
     background-image: linear-gradient(
         to top,
-        rgba(0, 0, 0, 0.75),
-        rgba(0, 0, 0, 0.35) 60%,
+        rgba(0, 0, 0, 0.8),
+        rgba(0, 0, 0, 0.45) 50%,
         rgba(0, 0, 0, 0)
     );
 }
 
-/* The gradient is always dark, so the controls must be light regardless
-   of the system theme. */
+/* The scrim is always dark, so the controls are always light. */
 .floating-bar button,
 .floating-bar label {
     color: #f6f6f6;
@@ -56,10 +71,6 @@ window.background.player-window {
 
 /* The playback bar is the one used while watching: its controls are a
    size step larger than the header's. */
-.floating-playbar {
-    padding: 16px 20px;
-}
-
 .floating-playbar button {
     min-height: 58px;
     min-width: 58px;
@@ -102,7 +113,9 @@ scale.seek trough slider {
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
 }
 
-/* Volume / speed sliders inside the popovers, same idea at popover scale. */
+/* Volume / speed sliders inside the popovers, same idea at popover scale.
+   Their colors come from the libadwaita theme (dark or light like the
+   rest of the chrome). */
 popover scale trough {
     min-height: 12px;
     border-radius: 999px;
@@ -115,7 +128,7 @@ popover scale trough slider {
     border-radius: 999px;
 }
 
-/* Big round play/pause in the middle of the video (visible while paused). */
+/* Big round play/pause in the middle of the video. */
 button.center-play {
     min-height: 92px;
     min-width: 92px;

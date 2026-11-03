@@ -82,6 +82,11 @@ fn main() -> gtk::glib::ExitCode {
 
 fn setup_css() {
     let provider = gtk::CssProvider::new();
+    // One load: each `load_from_*` on a provider *replaces* the previous
+    // styles, so loading several sheets separately would leave only the
+    // last one in effect. The controls are always dark-styled here; the
+    // system dark/light scheme only drives libadwaita chrome (menus,
+    // popovers, dialogs), which themes itself through `AdwStyleManager`.
     provider.load_from_bytes(&gtk::glib::Bytes::from_static(include_bytes!(
         "../data/style.css"
     )));
@@ -229,6 +234,29 @@ fn setup_actions(app: &adw::Application, shared: &Shared) {
         }
     });
     app.add_action(&fullscreen);
+
+    // Appearance: follow the system (the default), or force light/dark.
+    // The three menu items share this action with different targets, so
+    // GTK renders them as a radio group with the current choice checked.
+    // `ColorScheme::Default` keeps `AdwStyleManager` following the
+    // xdg-desktop-portal appearance setting; the split stylesheets react
+    // to the `.dark`/`.light` window class it maintains.
+    let theme = gtk::gio::SimpleAction::new_stateful(
+        "theme",
+        Some(gtk::glib::VariantTy::STRING),
+        &"default".to_variant(),
+    );
+    theme.connect_change_state(|action, target| {
+        let Some(target) = target else { return };
+        let scheme = match target.str().unwrap_or("default") {
+            "light" => adw::ColorScheme::ForceLight,
+            "dark" => adw::ColorScheme::ForceDark,
+            _ => adw::ColorScheme::Default,
+        };
+        adw::StyleManager::default().set_color_scheme(scheme);
+        action.set_state(&target.to_variant());
+    });
+    app.add_action(&theme);
 
     let quit = gtk::gio::SimpleAction::new("quit", None);
     quit.connect_activate({
