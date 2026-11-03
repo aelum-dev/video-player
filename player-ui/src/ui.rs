@@ -241,6 +241,10 @@ fn build_header(window: &adw::ApplicationWindow) -> (gtk::Revealer, gtk::Label) 
         .xalign(0.5)
         .build();
     title.add_css_class("header-title");
+    // The title is the visible handle of the window-move drag below. GTK4
+    // CSS has no `cursor` property (that was GTK3) — the cursor is a widget
+    // property set in code.
+    title.set_cursor_from_name(Some("grab"));
     title.set_hexpand(true);
     title.set_halign(gtk::Align::Center);
 
@@ -258,6 +262,49 @@ fn build_header(window: &adw::ApplicationWindow) -> (gtk::Revealer, gtk::Label) 
     let close = flat_button("window-close-symbolic", None, "Close (Ctrl+Q)");
     let window_clone = window.clone();
     close.connect_clicked(move |_| window_clone.close());
+
+    // Drag the header bar to move the window: it is the titlebar of a window
+    // that has none. `begin_move` sends xdg_toplevel.move, which Hyprland
+    // only began honoring in 0.56 ("xdg interactive drags") — before that a
+    // client-initiated move was ignored and the drag did nothing.
+    //
+    // A claimed sequence still reaches the claiming widget's ancestors, so a
+    // press on one of the bar's buttons WOULD arrive here too — hit-test the
+    // press against every control's bounds and leave those to the buttons.
+    // Presses on the bar itself (title, gaps, padding) start the move; the
+    // compositor takes over from there, a press without motion is a no-op,
+    // and the controls stay up because the hover controller keeps reporting
+    // the pointer as inside the bar.
+    let move_drag = gtk::EventControllerLegacy::new();
+    {
+        let window = window.clone();
+        let controls: Vec<gtk::Widget> =
+            vec![open.clone().upcast(), menu.clone().upcast(), close.clone().upcast()];
+        move_drag.connect_event(move |_ctrl, event| {
+            if event.event_type() == gtk::gdk::EventType::ButtonPress
+                && let Some(button) = event.downcast_ref::<gtk::gdk::ButtonEvent>()
+                && button.button() == 1
+                && !window.is_fullscreen()
+                && let Some((x, y)) = event.position()
+                && !controls.iter().any(|control| {
+                    control.compute_bounds(&window).is_some_and(|bounds| {
+                        x >= f64::from(bounds.x())
+                            && x < f64::from(bounds.x() + bounds.width())
+                            && y >= f64::from(bounds.y())
+                            && y < f64::from(bounds.y() + bounds.height())
+                    })
+                })
+                && let Some(device) = event.device()
+                && let Some(toplevel) = window
+                    .surface()
+                    .and_then(|surface| surface.downcast::<gtk::gdk::Toplevel>().ok())
+            {
+                toplevel.begin_move(&device, 1, x, y, event.time());
+            }
+            glib::Propagation::Proceed
+        });
+    }
+    bar.add_controller(move_drag);
 
     bar.append(&open);
     bar.append(&title);
