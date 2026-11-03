@@ -695,6 +695,7 @@ dependencies = [
  "anyhow",
  "gtk4",
  "libadwaita",
+ "libc",
  "player-core",
  "player-video",
  "tracing",

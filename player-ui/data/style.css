@@ -1,18 +1,30 @@
 /* mpv-gtk application styles.
  *
- * The app is dark-only: `AdwStyleManager` is forced to `ForceDark` at
- * startup, so menus, popovers and dialogs stay dark regardless of the
- * system setting. The controls floating over the video are dark-styled
- * here as well (white icons on a dark scrim): they sit on top of video -
- * often black letterbox bars - where light chrome would be invisible.
+ * This file styles what floats *over the video*: the header and playbar
+ * scrims, the center button, the sliders. The chrome - menus, popovers,
+ * dialogs - is left to libadwaita, which already follows the system
+ * dark/light setting and the user's palette.
  *
- * To stay readable over bright full-frame video, the header and playbar
- * carry a dark fade-out gradient that extends beyond the controls into
- * the video (the extra padding below/above the bars is the fade region).
+ * Everything here takes its colors from the palette by NAME (@window_bg_color,
+ * @card_bg_color, @accent_bg_color, ...): on this box that is the matugen/DMS
+ * palette in ~/.config/gtk-4.0, hot-reloaded by `theme.rs`, and libadwaita's
+ * own palette where the user has none. No hex values: when the user switches
+ * dark/light the player switches with it.
+ *
+ * The pairs matter. A scrim uses a *background* name and the controls on it
+ * use the matching *foreground* name, so the overlay stays legible in either
+ * variant instead of assuming dark: light palette, light scrim, dark icons.
+ *
+ * To stay readable over bright full-frame video, the header and playbar carry
+ * a fade-out gradient that reaches beyond the controls into the picture (the
+ * extra padding below/above the bars is the fade region). The falloff is
+ * multi-stop and curved on purpose: a linear ramp reads as a hard band.
  */
 
-/* The video letterbox: mpv clears the FBO with alpha 0 outside the frame,
-   so whatever is behind the GLArea shows through. Make it cinema black. */
+/* The video letterbox: mpv clears the FBO with alpha 0 outside the frame, so
+   whatever is behind the GLArea shows through. Cinema black, deliberately not
+   @window_bg_color - a pale band above and below the film is not a theme
+   choice people expect from a video player. */
 window.background.player-window {
     background-color: black;
 }
@@ -56,10 +68,11 @@ window.background.player-window {
     );
 }
 
-/* The scrim is always dark, so the controls are always light. */
+/* The ink of whatever palette is active - light on a dark palette, dark on a
+   light one, exactly as it is in the rest of the theme. */
 .floating-bar button,
 .floating-bar label {
-    color: #f6f6f6;
+    color: @window_fg_color;
 }
 
 .floating-bar button {
@@ -69,7 +82,7 @@ window.background.player-window {
 }
 
 .floating-bar button:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: alpha(@window_fg_color, 0.15);
 }
 
 .floating-bar button label {
@@ -91,7 +104,10 @@ window.background.player-window {
 .header-title {
     font-weight: 600;
     font-size: 1.05em;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    /* The shadow is the palette's own background: it separates the title from
+       the picture behind it in either variant, where a fixed black shadow
+       would smear dark text on light video. */
+    text-shadow: 0 1px 2px alpha(@window_bg_color, 0.8);
 }
 
 .time-label {
@@ -107,7 +123,7 @@ scale.seek trough {
 }
 
 scale.seek trough highlight {
-    background-color: #e05780;
+    background-color: @accent_bg_color;
     border-radius: 999px;
 }
 
@@ -116,13 +132,13 @@ scale.seek trough slider {
     min-width: 38px;
     margin: -10px;
     border-radius: 999px;
-    background-color: #f6f6f6;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+    background-color: @window_fg_color;
+    box-shadow: 0 1px 4px alpha(@window_bg_color, 0.6);
 }
 
 /* Volume / speed sliders inside the popovers, same idea at popover scale.
-   Their colors come from the libadwaita theme (dark or light like the
-   rest of the chrome). */
+   They take their colors from the theme (the palette, dark or light like the
+   rest of the chrome) and set no colors of their own. */
 popover scale trough {
     min-height: 12px;
     border-radius: 999px;
@@ -135,9 +151,9 @@ popover scale trough slider {
     border-radius: 999px;
 }
 
-/* Big round play/pause in the middle of the video. The background uses the
-   palette's surface color by name: the user's matugen palette when it is
-   loaded, libadwaita's dark equivalent otherwise (both define these names). */
+/* Big round play/pause in the middle of the video: the palette's card surface
+   with its matching foreground, so it reads as part of the theme over any
+   picture, in either variant. */
 button.center-play {
     min-height: 92px;
     min-width: 92px;
@@ -145,10 +161,14 @@ button.center-play {
     border-radius: 999px;
     -gtk-icon-size: 44px;
     background: alpha(@card_bg_color, 0.75);
-    color: #f6f6f6;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    color: @card_fg_color;
+    box-shadow: 0 2px 10px alpha(@window_bg_color, 0.5);
 }
 
 button.center-play:hover {
     background: alpha(@card_bg_color, 0.9);
 }
+
+
+
+

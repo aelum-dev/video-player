@@ -12,6 +12,7 @@ path = "src/main.rs"
 player-core = { path = "../player-core" }
 player-video = { path = "../player-video" }
 anyhow.workspace = true
+libc.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 gtk.workspace = true

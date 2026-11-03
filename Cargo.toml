@@ -9,6 +9,7 @@ license = "MIT"
 
 [workspace.dependencies]
 anyhow = "1"
+libc = "0.2"
 tracing = "0.1"
 tracing-subscriber = "0.2"
 mpv-engine = "0.2.1"
