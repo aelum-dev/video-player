@@ -77,6 +77,10 @@ impl Controls {
         self.revealed.set(on);
         self.header.set_reveal_child(on);
         self.playbar.set_reveal_child(on);
+        // The center play/pause button rides with the controls: it is there
+        // whenever the user is interacting (and stays while paused), and fades
+        // out with everything else on idle.
+        self.center.set_reveal_child(on);
     }
 
     /// Pointer activity: show the controls and restart the idle window.
@@ -122,15 +126,13 @@ impl Controls {
         } else {
             "media-playback-pause-symbolic"
         });
-        // The center button mirrors the play state: it appears when paused
-        // (that is when people look for it) and stays out of the picture
-        // while playing.
+        // The center button mirrors the play state with its icon; its
+        // visibility follows the controls (see `set_revealed`).
         self.center_button.set_icon_name(if state.paused {
             "media-playback-start-symbolic"
         } else {
             "media-playback-pause-symbolic"
         });
-        self.center.set_reveal_child(state.paused);
         self.time_label
             .set_text(&format::clock(state.position));
         self.duration_label
@@ -373,9 +375,10 @@ struct PlayBar {
     fullscreen_button: gtk::Button,
 }
 
-/// The big round play/pause button in the middle of the video. It is only
-/// revealed while playback is paused (see `Controls::refresh`), so it never
-/// covers moving pictures.
+/// The big round play/pause button in the middle of the video. It rides with
+/// the floating controls (see `Controls::set_revealed`): visible while the
+/// user is interacting or paused, faded out on idle. Its icon tracks the play
+/// state.
 fn build_center() -> (gtk::Revealer, gtk::Button) {
     let button = gtk::Button::builder()
         .icon_name("media-playback-start-symbolic")
@@ -388,7 +391,9 @@ fn build_center() -> (gtk::Revealer, gtk::Button) {
     revealer.set_transition_duration(250);
     revealer.set_halign(gtk::Align::Center);
     revealer.set_valign(gtk::Align::Center);
-    revealer.set_reveal_child(false);
+    // Start revealed to match the controls' initial state (they are shown on
+    // open and fade on idle); `set_revealed` keeps them in sync from then on.
+    revealer.set_reveal_child(true);
     (revealer, button)
 }
 
