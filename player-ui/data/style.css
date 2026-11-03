@@ -167,23 +167,16 @@ popover scale trough slider {
     border-radius: 999px;
 }
 
-/* Big round play/pause in the middle of the video: a dark neutral disc with
-   white ink, in both variants - the same reason as the scrims. It rides on
-   the picture, and a palette-colored one turns into a pale blob over dark
-   footage in light mode. */
+/* Big play/pause in the middle of the video: icon only, no disc — the
+   picture stays unobstructed (the button carries the `flat` class so the
+   theme draws no background either). White ink for the same reason as the
+   scrims: it rides on the picture, which can be any color. */
 button.center-play {
     min-height: 92px;
     min-width: 92px;
     padding: 0;
-    border-radius: 999px;
     -gtk-icon-size: 44px;
-    background: rgba(24, 24, 24, 0.75);
     color: #f6f6f6;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
-}
-
-button.center-play:hover {
-    background: rgba(24, 24, 24, 0.9);
 }
 
 /* Drag & drop feedback: while a file drag is over the window, frame the

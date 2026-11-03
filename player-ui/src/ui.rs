@@ -56,7 +56,6 @@ pub struct Controls {
     header: gtk::Revealer,
     playbar: gtk::Revealer,
     title: gtk::Label,
-    play_button: gtk::Button,
     seek: gtk::Scale,
     time_label: gtk::Label,
     duration_label: gtk::Label,
@@ -65,7 +64,8 @@ pub struct Controls {
     speed_button: gtk::MenuButton,
     speed_scale: gtk::Scale,
     fullscreen_button: gtk::Button,
-    /// Big round play/pause button floating in the middle of the video;
+    /// Big play/pause button (icon only, no background) floating in the
+    /// middle of the video;
     /// revealed exactly while playback is paused.
     center: gtk::Revealer,
     center_button: gtk::Button,
@@ -156,9 +156,6 @@ impl Controls {
 
     /// Sync every control from the folded playback state.
     pub fn refresh(&self, state: &PlaybackState) {
-        // The icon shows the action the click performs: pause bars while
-        // playing, play triangle while paused.
-        self.play_button.set_icon_name(Self::play_icon(state.paused));
         // The center button mirrors the play state with its icon; its
         // visibility follows the controls (see `set_revealed`).
         self.center_button.set_icon_name(Self::play_icon(state.paused));
@@ -319,13 +316,6 @@ fn build_playbar(shared: &Shared) -> (gtk::Revealer, PlayBar) {
     bar.add_css_class("floating-bar");
     bar.add_css_class("floating-playbar");
 
-    // Start on the icon for the default state (playing): pause bars, i.e.
-    // "click to pause". `refresh` keeps it in step with the play state.
-    let play_button = flat_button(
-        Controls::play_icon(false),
-        Some("app.play-pause"),
-        "Play/pause (Space)",
-   );
     let prev_chapter = flat_button(
         "media-skip-backward-symbolic",
         Some("app.chapter-prev"),
@@ -417,7 +407,6 @@ fn build_playbar(shared: &Shared) -> (gtk::Revealer, PlayBar) {
         "Fullscreen (f / F11)",
     );
 
-    bar.append(&play_button);
     bar.append(&prev_chapter);
     bar.append(&next_chapter);
     bar.append(&time_label);
@@ -430,7 +419,6 @@ fn build_playbar(shared: &Shared) -> (gtk::Revealer, PlayBar) {
     (
         overlay_revealer(&bar, gtk::Align::End),
         PlayBar {
-            play_button,
             seek,
             time_label,
             duration_label,
@@ -444,7 +432,6 @@ fn build_playbar(shared: &Shared) -> (gtk::Revealer, PlayBar) {
 }
 
 struct PlayBar {
-    play_button: gtk::Button,
     seek: gtk::Scale,
     time_label: gtk::Label,
     duration_label: gtk::Label,
@@ -455,7 +442,8 @@ struct PlayBar {
     fullscreen_button: gtk::Button,
 }
 
-/// The big round play/pause button in the middle of the video. It rides with
+/// The big play/pause button in the middle of the video (icon only, no
+/// background). It rides with
 /// the floating controls (see `Controls::set_revealed`): visible while the
 /// user is interacting or paused, faded out on idle. Its icon tracks the play
 /// state.
@@ -464,6 +452,7 @@ fn build_center() -> (gtk::Revealer, gtk::Button) {
         .icon_name(Controls::play_icon(false))
         .action_name("app.play-pause")
         .build();
+    button.add_css_class("flat");
     button.add_css_class("center-play");
     let revealer = gtk::Revealer::new();
     revealer.set_child(Some(&button));
@@ -651,7 +640,6 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
         header: header.clone(),
         playbar: playbar.clone(),
         title,
-        play_button: bar.play_button,
         seek: bar.seek,
         time_label: bar.time_label,
         duration_label: bar.duration_label,
@@ -741,7 +729,7 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
 
     // Double-click on the video toggles fullscreen. Play/pause is *not* bound
     // to clicking the video (that was an easy accidental pause); it lives on
-    // the center button, the playbar button, and Space.
+    // the center button and Space.
     //
     // Manual pair detection, not `GestureClick`: its multi-press counter
     // keeps climbing while clicks stay inside its timing window (3, 4, 5…),
