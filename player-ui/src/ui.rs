@@ -79,6 +79,9 @@ pub struct Controls {
     seek_settle: Rc<Cell<i64>>,
     /// Pointer is over one of the control bars, or a popover is open.
     hover: Rc<Cell<bool>>,
+    /// A file drag is over the window. While set, the controls stay hidden so
+    /// the drop hint has the video to itself (see `set_drag_active`).
+    dragging: Rc<Cell<bool>>,
     revealed: Rc<Cell<bool>>,
     last_motion: Rc<Cell<i64>>,
     /// Last pointer position. Wayland re-sends the (unchanged) pointer
@@ -106,6 +109,11 @@ impl Controls {
 
 
     fn set_revealed(&self, on: bool) {
+        // While a file drag is over the window the controls are forced down:
+        // the drop hint owns the screen. `set_drag_active(false)` brings them
+        // back, so any `poke` from the hover/motion controllers during the drag
+        // is ignored here rather than fighting the hide.
+        let on = on && !self.dragging.get();
         if self.revealed.get() == on {
             return;
         }
@@ -116,6 +124,21 @@ impl Controls {
         // whenever the user is interacting (and stays while paused), and fades
         // out with everything else on idle.
         self.center.set_reveal_child(on);
+    }
+
+    /// A file drag entered (`on`) or left (`off`) the window. Hide the controls
+    /// for the duration so the drop hint is the only thing over the video, and
+    /// bring them back the moment the drag is over.
+    fn set_drag_active(&self, on: bool) {
+        if self.dragging.get() == on {
+            return;
+        }
+        self.dragging.set(on);
+        if on {
+            self.set_revealed(false);
+        } else {
+            self.poke();
+        }
     }
 
     /// Pointer activity: show the controls and restart the idle window.
@@ -655,6 +678,7 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
         seeking,
         seek_settle,
         hover: Rc::new(Cell::new(false)),
+        dragging: Rc::new(Cell::new(false)),
         revealed: Rc::new(Cell::new(true)),
         last_motion: Rc::new(Cell::new(Controls::now_ms())),
         last_pos: Rc::new(Cell::new((-1.0, -1.0))),
@@ -784,9 +808,10 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
         gtk::gdk::DragAction::COPY | gtk::gdk::DragAction::MOVE,
     );
     {
-        let hint = drop_hint.clone();
+        let (hint, ctrl) = (drop_hint.clone(), controls.clone());
         drop.connect_enter(move |target, _x, _y| {
             hint.set_visible(true);
+            ctrl.set_drag_active(true);
             let offered = target
                 .current_drop()
                 .map(|d| d.actions())
@@ -802,15 +827,22 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
             }
             gtk::gdk::DragAction::MOVE
         });
-        let hint = drop_hint.clone();
-        drop.connect_leave(move |_| hint.set_visible(false));
-        let (shared, controls) = (shared.clone(), controls.clone());
+        let (hint, ctrl) = (drop_hint.clone(), controls.clone());
+        drop.connect_leave(move |_| {
+            hint.set_visible(false);
+            ctrl.set_drag_active(false);
+        });
+        let (shared, ctrl) = (shared.clone(), controls.clone());
         drop.connect_drop(move |_target, value, _x, _y| {
             drop_hint.set_visible(false);
+            // The drag session ends here; `leave` is not guaranteed to follow a
+            // drop, so clear the flag directly (a rejected drop must not leave
+            // the controls stuck hidden). `open_dropped` then pokes them back.
+            ctrl.set_drag_active(false);
             let Ok(list) = value.get_owned::<gtk::gdk::FileList>() else {
                 return false;
             };
-            open_dropped(&shared, &controls, &list.files())
+            open_dropped(&shared, &ctrl, &list.files())
         });
     }
     window.add_controller(drop);
