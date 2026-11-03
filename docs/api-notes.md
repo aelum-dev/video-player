@@ -164,14 +164,3 @@ before trusting a version-specific claim.
   `GL_INVALID_FRAMEBUFFER_OPERATION`; not a usable probe.
 - KHR_debug only emits messages for **debug** contexts
   (`gdk_gl_context_set_debug_enabled(true)` before `realize`).
-
-## Environment facts
-- GTK 4.24.1, Mesa 26.2.6-arch1.1, AMD RX 6800 (radeonsi/navi21), Arch Linux.
-- **Hyprland 0.57.0**, Wayland, single monitor DP-2 2560x1440@120, **scale 1.25**.
-  (Xwayland `:0` exists but is rootless — an x11grab of its root is always black.)
-- mpv 0.41.0, libplacebo v7.360.1; `mpv-engine` 0.2.1 / `rsmpv` 0.2.1.
-- Test media: `ffmpeg -y -f lavfi -i testsrc2=duration=8:size=640x360:rate=30
-  -f lavfi -i sine=frequency=440:duration=8 -c:v libx264 -pix_fmt yuv420p
-  -c:a aac /tmp/opencode/test.mkv`
-- Real clips for manual checks: `/mnt/files/Clips/` (h264/vp9, spaces and non-ASCII
-  in names — good for path-handling regressions).
