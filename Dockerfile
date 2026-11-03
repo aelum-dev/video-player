@@ -14,4 +14,4 @@ RUN cargo build --release --locked
 
 # GUI smoke test inside the container needs a display; run with:
 #   docker run --rm -it -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unx \
-#     mpv-gtk-build target/release/mpv-gtk some-video.mkv
+#     video-player-build target/release/video-player some-video.mkv

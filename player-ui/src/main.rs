@@ -1,4 +1,4 @@
-//! mpv-gtk — the GTK shell: application, actions, and the event pump.
+//! Video player — the GTK shell: application, actions, and the event pump.
 //!
 //! Opens files from the CLI or Ctrl+O and plays them through the core engine;
 //! the window itself (video surface with controls floating over it) is built
@@ -22,7 +22,7 @@ use gtk::prelude::*;
 use libadwaita as adw;
 use player_core::{MpvEngine, PlaybackEngine, PlaybackState, PlayerEvent};
 
-const APP_ID: &str = "dev.mpvgtk.Player";
+const APP_ID: &str = "aelum.videoplayer.Player";
 /// Seconds jumped by the Left/Right keys (mpv's default).
 const SEEK_STEP_SECS: i64 = 5;
 /// Volume percentage stepped by the Up/Down keys.
@@ -42,8 +42,8 @@ struct Shared {
 }
 
 fn main() -> gtk::glib::ExitCode {
-    // Before anything else can be killed by it: DMS's theme switch ends with
-    // `pkill -HUP -f 'gtk'`, which matches this binary by name.
+    // Kept as a safety net: DMS's theme switch ends with
+    // `pkill -HUP -f 'gtk'`, which matched the old `mpv-gtk` binary name.
     theme::ignore_hangup();
 
     tracing_subscriber::fmt()

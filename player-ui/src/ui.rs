@@ -167,7 +167,7 @@ impl Controls {
         self.duration_label
             .set_text(&format::clock(state.duration));
         self.title
-            .set_text(state.title().unwrap_or_else(|| "mpv-gtk".to_owned()).as_str());
+            .set_text(state.title().unwrap_or_else(|| "Video player".to_owned()).as_str());
         self.volume_button
             .set_icon_name(volume_icon(state.volume, state.muted));
         self.speed_button.set_label(&format!("{:.2}×", state.speed));
@@ -235,7 +235,7 @@ fn build_header(window: &adw::ApplicationWindow) -> (gtk::Revealer, gtk::Label) 
     );
 
     let title = gtk::Label::builder()
-        .label("mpv-gtk")
+        .label("Video player")
         .ellipsize(gtk::pango::EllipsizeMode::Middle)
         .max_width_chars(48)
         .xalign(0.5)
@@ -504,7 +504,7 @@ fn open_dropped(shared: &Shared, controls: &Controls, files: &[gtk::gio::File]) 
 /// Build the window: video surface with the controls floating over it.
 pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::ApplicationWindow {
     let window = adw::ApplicationWindow::new(app);
-    window.set_title(Some("mpv-gtk"));
+    window.set_title(Some("Video player"));
     window.set_default_size(1000, 600);
     window.add_css_class("player-window");
 
