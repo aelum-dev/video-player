@@ -313,18 +313,25 @@ label.drop-hint {
 }
 
 levelbar.volume-osd-bar trough {
-    /* Size is set in code (volume.rs); this rule is colors and shape only.
-       Fainter than the seek trough: it sits inside the dark capsule, which
-       already carries the contrast. */
+    /* Size is set in code (volume.rs); this rule is shape and the initial
+       paint only. The fill is a gradient stop on the trough itself, not
+       the LevelBar block: a background is always clipped by the node's
+       border-radius, so the fill edge can never poke past the shell and
+       a low level reads as the bottom of the container filled, not a
+       detached dot. volume.rs rewrites the stop each frame; the 77% here
+       matches the initial value (100 of 130). */
     border-radius: 999px;
-    background-color: rgba(255, 255, 255, 0.18);
+    background-image: linear-gradient(
+        to top,
+        @accent_bg_color 0%, @accent_bg_color 77%,
+        rgba(255, 255, 255, 0.18) 77%, rgba(255, 255, 255, 0.18) 100%
+    );
 }
 
-levelbar.volume-osd-bar trough > block {
-    border-width: 0;
-    border-radius: 999px;
-}
-
+levelbar.volume-osd-bar trough > block,
 levelbar.volume-osd-bar trough > block.empty {
+    /* The LevelBar still carries the value (accessibility), but the paint
+       is the trough gradient — keep both block halves silent. */
+    border-width: 0;
     background-color: transparent;
 }

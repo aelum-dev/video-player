@@ -38,9 +38,17 @@ const OSD_WIDTH: i32 = 64;
 const BAR_WIDTH: i32 = 18;
 const BAR_HEIGHT: i32 = 140;
 /// Fill tween after a step: the label shows the number at once, the bar
-/// eases to it.
-const ANIM_MS: i64 = 250;
+/// eases to it. 250 ms read as laggy against the wheel's pace; 150 ms
+/// still reads as motion, not a jump-cut.
+const ANIM_MS: i64 = 150;
 const ANIM_TICK_MS: u32 = 16;
+
+/// The fill stop of the trough gradient, as a percent of bar height (the
+/// gradient runs bottom-up). Clamped so an out-of-range value can never
+/// produce a negative or past-100 stop. Pure so it is unit-tested.
+fn fill_stop_pct(value: f64) -> f64 {
+    (value / MAX_VOLUME * 100.0).clamp(0.0, 100.0)
+}
 
 /// Fold one scroll event into the notch accumulator and report the whole
 /// steps produced (positive = volume up). A step fires only once a full
@@ -62,8 +70,8 @@ fn scroll_accumulate(acc: f64, dy: f64) -> (f64, i32) {
 /// The fill tween's value at `elapsed_ms` from a step: cubic ease-out,
 /// clamped at both ends so the last frame lands exactly on the target.
 /// Pure so the curve is unit-tested.
-fn tween_value(from: f64, to: f64, elapsed_ms: i64) -> f64 {
-    let t = (elapsed_ms as f64 / ANIM_MS as f64).clamp(0.0, 1.0);
+fn tween_value(from: f64, to: f64, elapsed_ms: i64, dur: i64) -> f64 {
+    let t = (elapsed_ms as f64 / dur as f64).clamp(0.0, 1.0);
     let eased = 1.0 - (1.0 - t).powi(3);
     from + (to - from) * eased
 }
@@ -74,6 +82,8 @@ fn tween_value(from: f64, to: f64, elapsed_ms: i64) -> f64 {
 pub(super) struct VolumeOsd {
     revealer: gtk::Revealer,
     bar: gtk::LevelBar,
+    /// Rewritten per frame: the fill stop of the trough gradient.
+    fill_css: gtk::CssProvider,
     percent: gtk::Label,
     icon: gtk::Image,
     /// The (volume, muted) pair currently shown — the change detector.
@@ -102,6 +112,19 @@ pub(super) fn build() -> VolumeOsd {
     // Match `shown`'s initial value: the first change animates from the
     // level claimed, not from an empty bar.
     bar.set_value(100.0);
+    // The fill is painted as a gradient stop on the trough (see style.css):
+    // a background is clipped by the node's border-radius, so the fill can
+    // never poke past the shell at any level. This provider is scoped by
+    // the `.volume-osd-bar` class — only this bar matches — and is
+    // rewritten at every tween frame.
+    let fill_css = gtk::CssProvider::new();
+    if let Some(display) = gtk::gdk::Display::default() {
+        gtk::style_context_add_provider_for_display(
+            &display,
+            &fill_css,
+            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
+        );
+    }
     let percent = gtk::Label::builder()
         .label("100%")
         // Odometer, not centering: the slot is the width of the widest
@@ -135,6 +158,7 @@ pub(super) fn build() -> VolumeOsd {
         bar,
         percent,
         icon,
+        fill_css,
         // Matches `PlaybackState::default`: the first pump refresh must not
         // flash for a volume nobody changed.
         shown: Rc::new(Cell::new((100.0, false))),
@@ -155,7 +179,7 @@ impl VolumeOsd {
             return;
         }
         self.shown.set((volume, muted));
-        self.bar.set_value(self.animate_to(volume));
+        paint_fill(&self.bar, &self.fill_css, self.animate_to(volume));
         self.percent.set_text(&format!("{}%", volume.round()));
         self.icon.set_icon_name(Some(volume_icon(volume, muted)));
         self.revealer.set_reveal_child(true);
@@ -181,12 +205,13 @@ impl VolumeOsd {
         }
         let start = now_ms();
         let bar = self.bar.clone();
+        let css = self.fill_css.clone();
         let slot = self.anim_id.clone();
         let id = glib::timeout_add_local(
             Duration::from_millis(ANIM_TICK_MS as u64),
             move || -> glib::ControlFlow {
-                let value = tween_value(from, target, now_ms() - start);
-                bar.set_value(value);
+                let value = tween_value(from, target, now_ms() - start, ANIM_MS);
+                paint_fill(&bar, &css, value);
                 if now_ms() - start >= ANIM_MS {
                     *slot.borrow_mut() = None;
                     glib::ControlFlow::Break
@@ -196,8 +221,24 @@ impl VolumeOsd {
             },
         );
         *self.anim_id.borrow_mut() = Some(id);
-        tween_value(from, target, 0)
+        tween_value(from, target, 0, ANIM_MS)
     }
+}
+
+/// Paint the fill for one value: rewrite the trough gradient so the
+/// accent occupies the bottom `fill_stop_pct` of the bar. The gradient
+/// is clipped by the trough's rounded shape, so no fill edge can cross
+/// the shell at any level; the LevelBar value is kept only for
+/// accessibility (the blocks are transparent, see style.css).
+fn paint_fill(bar: &gtk::LevelBar, css: &gtk::CssProvider, value: f64) {
+    let stop = fill_stop_pct(value);
+    let rule = format!(
+        "levelbar.volume-osd-bar trough {{ background-image: linear-gradient( \
+         to top, @accent_bg_color 0%, @accent_bg_color {stop:.2}%, \
+         rgba(255, 255, 255, 0.18) {stop:.2}%, rgba(255, 255, 255, 0.18) 100%); }}"
+    );
+    css.load_from_string(&rule);
+    bar.set_value(value);
 }
 
 /// Wheel-over-window volume control. Window-level: the wheel changes the
@@ -227,7 +268,9 @@ pub(super) fn attach_scroll(window: &impl IsA<gtk::Widget>) {
 
 #[cfg(test)]
 mod tests {
-    use super::{ANIM_MS, scroll_accumulate, tween_value};
+    use super::{
+        ANIM_MS, MAX_VOLUME, fill_stop_pct, scroll_accumulate, tween_value,
+    };
 
     #[test]
     fn one_wheel_notch_steps_once() {
@@ -264,24 +307,34 @@ mod tests {
     }
 
     #[test]
+    fn the_fill_stop_spans_the_full_bar_and_stays_in_range() {
+        assert_eq!(fill_stop_pct(0.0), 0.0);
+        assert_eq!(fill_stop_pct(65.0), 50.0);
+        assert_eq!(fill_stop_pct(MAX_VOLUME), 100.0);
+        // Out-of-range values clamp: no negative or past-100 gradient stop.
+        assert_eq!(fill_stop_pct(-10.0), 0.0);
+        assert_eq!(fill_stop_pct(MAX_VOLUME * 2.0), 100.0);
+    }
+
+    #[test]
     fn the_tween_starts_at_the_current_level_and_lands_on_the_target() {
-        assert_eq!(tween_value(100.0, 80.0, 0), 100.0);
-        assert_eq!(tween_value(100.0, 80.0, ANIM_MS), 80.0);
+        assert_eq!(tween_value(100.0, 80.0, 0, ANIM_MS), 100.0);
+        assert_eq!(tween_value(100.0, 80.0, ANIM_MS, ANIM_MS), 80.0);
         // Clamped at both ends: the last frame never overshoots, and a
         // late tick keeps reporting the target, not past it.
-        assert_eq!(tween_value(100.0, 80.0, ANIM_MS * 3), 80.0);
+        assert_eq!(tween_value(100.0, 80.0, ANIM_MS * 3, ANIM_MS), 80.0);
     }
 
     #[test]
     fn the_tween_eases_out_moves_fast_first_and_covers_most_of_the_step_early() {
-        let mid = tween_value(100.0, 80.0, ANIM_MS / 2);
+        let mid = tween_value(100.0, 80.0, ANIM_MS / 2, ANIM_MS);
         // Cubic ease-out: past the halfway point of the range at the
         // halfway point of the time.
         assert!(mid < 90.0 && mid > 80.0, "mid value {mid} must be past halfway");
         // And monotone toward the target across the whole run.
         let mut prev = 100.0;
         for t in (0..=ANIM_MS).step_by(16) {
-            let v = tween_value(100.0, 80.0, t);
+            let v = tween_value(100.0, 80.0, t, ANIM_MS);
             assert!(v <= prev && v >= 80.0);
             prev = v;
         }
