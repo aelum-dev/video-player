@@ -91,6 +91,10 @@ More (display-path checks, D-Bus driving of a running instance, Docker):
 
 - Comments here document *why*, especially GTK/mpv traps — preserve them
   when moving code, and put a new one where the next trap lives.
+- Keep comments short: one clause for the *why* is enough; a comment is
+  not a design essay or a changelog. Never narrate the request that
+  prompted a change ("the user asked…", "as requested") — code states
+  what is true now; the history of asks belongs to git and PROGRESS.md.
 - Every file earns its keep: no speculative traits or registries without a
   real user (the plugin-registry note in "Stack decisions" is the pattern).
 - Pure decision logic belongs in `player-core` with unit tests, not in UI

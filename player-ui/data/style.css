@@ -277,16 +277,13 @@ label.drop-hint {
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
-/* The volume OSD on the right edge: it rides on the picture, not on a bar,
-   so it carries its own small scrim and ink like the center buttons. The
-   bar is a LevelBar (an indicator — it never takes input); the theme's
-   own rules already fill blocks with the accent, which is the one palette
-   color that reads over video (same reasoning as the seek fill), so what
-   is set here is the size and the always-dark trough. */
+/* Volume OSD on the right edge. No scrim: the icon, bar and percent float
+   directly over the video. The bar is a LevelBar (an indicator, never
+   takes input); the theme already fills blocks with the accent — the one
+   palette color that reads over video (same reasoning as the seek fill),
+   so only the always-dark trough is set here. */
 .volume-osd {
     padding: 20px 8px;
-    border-radius: 999px;
-    background-color: alpha(black, 0.6);
     color: #f6f6f6;
 }
 
@@ -297,14 +294,12 @@ label.drop-hint {
 .volume-osd label {
     font-variant-numeric: tabular-nums;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-    /* No width reservation at all: the box has a fixed size set in code
-       (volume.rs), so the readout is fully detached from the layout —
-       digits of any length never move anything. */
+    /* No width reservation: the box size is fixed in code (volume.rs),
+       so the readout never feeds the layout. */
 }
 
 levelbar.volume-osd-bar trough {
-    /* Size is set in code (volume.rs: BAR_WIDTH/BAR_HEIGHT, pinned with
-       halign center); this rule is colors and shape only. */
+    /* Size is set in code (volume.rs); this rule is colors and shape only. */
     border-radius: 999px;
     background-color: rgba(255, 255, 255, 0.25);
 }

@@ -1,19 +1,15 @@
 //! Volume via the mouse wheel, and the on-screen volume indicator.
 //!
 //! The wheel steps the volume through the same `app.volume-rel` action the
-//! Up/Down keys use: one clamp, one path to mpv (the wheel's own step is
-//! coarser — `WHEEL_VOLUME_STEP`). A notch accumulator turns
-//! both discrete wheel events (dy = ±1 per notch) and smooth touchpad
-//! scrolling (many fractional deltas) into whole steps.
+//! Up/Down keys use — one clamp, one path to mpv; the wheel's own step is
+//! coarser (`WHEEL_VOLUME_STEP`). A notch accumulator turns wheel notches
+//! (dy = ±1) and the touchpad's fractional stream into whole steps.
 //!
-//! The indicator on the right edge is an OSD, not a control: it never takes
-//! input, and it appears for *any* volume change — wheel, keys, the popover
-//! slider — because that is the moment people look for confirmation. It is
-//! driven from `Controls::refresh`: the folded state is the one truth, so
-//! the OSD can never disagree with what the engine actually did. It fades
-//! out after a quiet interval, independent of the controls' own idle-hide —
-//! a volume change while the controls are down still shows it (mpv's
-//! behaviour, and the whole point of the gesture).
+//! The right-edge indicator is an OSD, not a control: it never takes
+//! input, appears for *any* volume change, and is driven from
+//! `Controls::refresh` — the folded state is the one truth, so it can
+//! never disagree with the engine. It fades on its own schedule,
+//! independent of the controls' idle-hide (mpv's behaviour).
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -27,35 +23,25 @@ use crate::MAX_VOLUME;
 use super::controls::volume_icon;
 use super::now_ms;
 
-/// How long the indicator stays up after the last volume change. Short
-/// enough to never sit over the picture while watching, long enough to
-/// re-read during a deliberate scroll.
+/// How long the indicator stays up after the last volume change.
 const OSD_HIDE_MS: u64 = 1_200;
-/// Volume percentage per wheel notch. The wheel is the coarse gesture —
-/// a few notches should cross the useful range — so it steps wider than
-/// the Up/Down keys' fine 5% (`VOLUME_STEP` in main.rs).
+/// Per wheel notch — the coarse gesture. The keys keep the fine 5%.
 const WHEEL_VOLUME_STEP: i32 = 10;
-/// The capsule's width is its own decision, not the text's: the percent
-/// readout is fully detached from the layout (a label reservation still
-/// let the digits nudge the box). 56 logical px fits the widest readout
-/// ("130%", measured 31 px) with the bar centred inside it.
+/// Fixed capsule width: the readout never feeds the layout. Fits the
+/// widest possible one ("130%", measured 31 px).
 const OSD_WIDTH: i32 = 56;
-/// The bar's width/length. The bar is pinned (halign center) inside the
-/// fixed-width box, so these are its real size — CSS keeps colors only.
+/// Bar size. A LevelBar defaults to halign fill and stretches to the
+/// box, so the size is pinned here and the bar is centered.
 const BAR_WIDTH: i32 = 30;
 const BAR_HEIGHT: i32 = 160;
-/// The fill tween's duration and tick after a volume step: short enough
-/// to feel instant, long enough for the eye to follow where the level
-/// went (the label shows the exact number at once; the bar eases to it).
+/// Fill tween after a step: the label shows the number at once, the bar
+/// eases to it.
 const ANIM_MS: i64 = 250;
 const ANIM_TICK_MS: u32 = 16;
 
 /// Fold one scroll event into the notch accumulator and report the whole
-/// steps it produced (positive = volume up: scrolling up increases).
-///
-/// GTK delivers wheel notches as dy = ±1 and touchpad scrolling as a stream
-/// of fractional deltas; both become a volume step only once a full notch
-/// has accumulated, and the remainder carries over to the next event.
+/// steps produced (positive = volume up). A step fires only once a full
+/// notch has accumulated; the remainder carries over.
 fn scroll_accumulate(acc: f64, dy: f64) -> (f64, i32) {
     let mut acc = acc + dy;
     let mut steps = 0;
@@ -70,17 +56,17 @@ fn scroll_accumulate(acc: f64, dy: f64) -> (f64, i32) {
     (acc, steps)
 }
 
-/// The fill tween's value at progress `t` (ms since the step started):
-/// cubic ease-out from `from` to `to`, clamped at both ends so the last
-/// frame lands exactly on the target. Pure so the curve is unit-tested.
+/// The fill tween's value at `elapsed_ms` from a step: cubic ease-out,
+/// clamped at both ends so the last frame lands exactly on the target.
+/// Pure so the curve is unit-tested.
 fn tween_value(from: f64, to: f64, elapsed_ms: i64) -> f64 {
     let t = (elapsed_ms as f64 / ANIM_MS as f64).clamp(0.0, 1.0);
     let eased = 1.0 - (1.0 - t).powi(3);
     from + (to - from) * eased
 }
 
-/// The right-edge volume OSD. `sync` is called with every folded state;
-/// it shows only when the (volume, muted) pair actually changed.
+/// The right-edge volume OSD. `sync` shows only when the (volume, muted)
+/// pair actually changed.
 #[derive(Clone)]
 pub(super) struct VolumeOsd {
     revealer: gtk::Revealer,
@@ -90,32 +76,27 @@ pub(super) struct VolumeOsd {
     /// The (volume, muted) pair currently shown — the change detector.
     shown: Rc<Cell<(f64, bool)>>,
     hide_id: Rc<RefCell<Option<glib::SourceId>>>,
-    /// The running fill tween, if any (re-anchored from wherever the bar
-    /// currently sits whenever a new change arrives mid-animation).
+    /// Running fill tween, if any.
     anim_id: Rc<RefCell<Option<glib::SourceId>>>,
 }
 
 pub(super) fn build() -> VolumeOsd {
     let icon = gtk::Image::from_icon_name("audio-volume-high-symbolic");
-    // LevelBar, not a Scale: it is an indicator, it never takes input.
-    // The vertical orientation has no setter in the bindings — builder only.
+    // LevelBar, not a Scale: an indicator never takes input. Vertical
+    // orientation is builder-only in the bindings.
     let bar = gtk::LevelBar::builder()
         .orientation(gtk::Orientation::Vertical)
         .build();
-    // A vertical LevelBar fills from the TOP by default (seen on screen:
-    // 85% put the accent at the top). A volume bar must grow from the
-    // bottom up — inverted=true flips it.
+    // A vertical LevelBar fills top-down by default; a volume bar grows
+    // bottom-up.
     bar.set_inverted(true);
     bar.set_min_value(0.0);
     bar.set_max_value(MAX_VOLUME);
     bar.add_css_class("volume-osd-bar");
-    // The bar's size is code's decision (see the constants): a LevelBar
-    // defaults to halign fill and would stretch to whatever the content
-    // box is — that stretched bar is what "grew wider at 100%" was.
     bar.set_size_request(BAR_WIDTH, BAR_HEIGHT);
     bar.set_halign(gtk::Align::Center);
-    // Match `shown`'s initial (100, false): the first change animates
-    // FROM the level the OSD claims to be at, never from an empty bar.
+    // Match `shown`'s initial value: the first change animates from the
+    // level claimed, not from an empty bar.
     bar.set_value(100.0);
     let percent = gtk::Label::builder()
         .label("100%")
@@ -125,8 +106,6 @@ pub(super) fn build() -> VolumeOsd {
 
     let box_ = gtk::Box::new(gtk::Orientation::Vertical, 10);
     box_.add_css_class("volume-osd");
-    // Fixed width: the percent readout is fully detached from the layout —
-    // digits of any length paint inside this, they never move anything.
     box_.set_size_request(OSD_WIDTH, -1);
     box_.append(&icon);
     box_.append(&bar);
@@ -147,7 +126,7 @@ pub(super) fn build() -> VolumeOsd {
         percent,
         icon,
         // Matches `PlaybackState::default`: the first pump refresh must not
-        // flash an indicator for a volume nobody changed.
+        // flash for a volume nobody changed.
         shown: Rc::new(Cell::new((100.0, false))),
         hide_id: Rc::new(RefCell::new(None)),
         anim_id: Rc::new(RefCell::new(None)),
@@ -159,8 +138,8 @@ impl VolumeOsd {
         &self.revealer
     }
 
-    /// Show the indicator for (volume, muted) unless it is what is already
-    /// shown, and re-arm the fade-out.
+    /// Show the indicator for (volume, muted) unless already shown, and
+    /// re-arm the fade-out.
     pub(super) fn sync(&self, volume: f64, muted: bool) {
         if self.shown.get() == (volume, muted) {
             return;
@@ -182,10 +161,9 @@ impl VolumeOsd {
         *self.hide_id.borrow_mut() = Some(id);
     }
 
-    /// Start (or re-anchor) the fill tween toward `target` and return the
-    /// value to paint on THIS frame — the first frame of a new tween must
-    /// not wait a tick, and a mid-tween change must continue from where
-    /// the bar actually is, not from the old target.
+    /// Start or re-anchor the fill tween and return the value to paint on
+    /// THIS frame. A mid-tween change continues from where the bar is,
+    /// not from the old target.
     fn animate_to(&self, target: f64) -> f64 {
         let from = self.bar.value();
         if let Some(id) = self.anim_id.borrow_mut().take() {
@@ -212,13 +190,11 @@ impl VolumeOsd {
     }
 }
 
-/// Wheel-over-window volume control: a scroll controller on the window.
-///
-/// Window-level, not video-level: the wheel changes the volume wherever the
-/// pointer is (mpv's behaviour) — except over the seek and popover sliders,
-/// whose own scroll handling claims the sequence first. `DISCRETE` is left
-/// off on purpose: without it the controller receives wheel notches *and*
-/// the touchpad's fractional stream, which feeds the same accumulator.
+/// Wheel-over-window volume control. Window-level: the wheel changes the
+/// volume wherever the pointer is (mpv's behaviour), except over the seek
+/// and popover sliders, whose own scroll handling claims the sequence
+/// first. `DISCRETE` is off so the touchpad's fractional stream also
+/// reaches the accumulator.
 pub(super) fn attach_scroll(window: &impl IsA<gtk::Widget>) {
     let window = window.as_ref().clone();
     let acc = Rc::new(Cell::new(0.0f64));
