@@ -15,10 +15,10 @@
 #      quick install test.
 #   5. Verifies the checksum and signature before returning.
 #
-# The package is NOT pushed into the distro repos yet — install it on a test
-# host first (the pacman command is printed at the end). If it later joins a
-# repo, switch the signature to makepkg's binary `.sig` form for pacman's
-# own SigLevel checks; `.asc` matches the release-asset convention today.
+# The package is published to the [aelum] pacman repository (the release bucket's
+# repo/ prefix) with ../repo/publish-repo.sh, which adds its own binary `.sig`
+# for pacman's SigLevel checks; the `.asc` here stays the human-verification
+# convention, matching the release assets.
 #
 # Usage:
 #   ./scripts/build-pkg.sh              # build + sign (needs AELUM_GPG_KEY)
@@ -141,7 +141,11 @@ fi
 
 cat <<EOF
 
-Install on a test host (the package is not in any repo yet):
+Install (after ../repo/publish-repo.sh, on any system with the [aelum] repo):
+
+    sudo pacman -Sy && sudo pacman -S ${pkgname:?}
+
+Or directly from disk on a test host:
 
     sudo pacman -U $PKGFILE
 

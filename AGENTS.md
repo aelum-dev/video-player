@@ -82,6 +82,7 @@ cargo run -p player-ui                     # GUI — interface tests (screen-cap
                                            # launch WITHOUT a sample file
 cargo run -p player-ui -- some-video.mkv   # GUI with a file, for manual playback checks
 ./scripts/build-pkg.sh                     # Arch .pkg.tar.zst + sha256 + GPG .asc → dist/
+../repo/publish-repo.sh                    # publish the newest dist/ package to the [aelum] repo
 ```
 
 More (display-path checks, D-Bus driving of a running instance, Docker):
