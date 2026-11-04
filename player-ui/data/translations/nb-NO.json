@@ -15,7 +15,7 @@
   "menu.open": "Åpne media…",
   "menu.quit": "Avslutt",
   "toast.dndExtra": "Spiller av den første av {count} filer som ble sluppet (ingen spilleliste ennå)",
-  "toast.noGl": "Videoflaten startet ikke: ingen GL-renderkontekst (se loggen)",
+  "toast.noGl": "Kunne ikke starte videoflaten: ingen GL-renderkontekst (se loggen)",
   "toast.openFailed": "Kunne ikke åpne {path}: {error}",
-  "toast.playbackFailed": "Avspilling feilet: {error}"
+  "toast.playbackFailed": "Kunne ikke spille av: {error}"
 }

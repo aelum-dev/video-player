@@ -14,7 +14,7 @@
   "menu.label": "القائمة",
   "menu.open": "فتح الوسائط…",
   "menu.quit": "إنهاء",
-  "toast.dndExtra": "يُشغَّل الملف الأول من بين {count} ملفات أُفلتت (لا توجد قائمة تشغيل بعد)",
+  "toast.dndExtra": "يُشغَّل الملف الأول من بين {count} ملفات مُفلَتة (لا توجد قائمة تشغيل بعد)",
   "toast.noGl": "تعذّر بدء سطح الفيديو: لا يوجد سياق عرض GL (انظر السجل)",
   "toast.openFailed": "تعذّر فتح {path}: {error}",
   "toast.playbackFailed": "تعذّر التشغيل: {error}"

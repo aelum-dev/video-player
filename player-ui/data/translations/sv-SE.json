@@ -15,7 +15,7 @@
   "menu.open": "Öppna media…",
   "menu.quit": "Avsluta",
   "toast.dndExtra": "Spelar den första av {count} släppta filer (ingen spellista ännu)",
-  "toast.noGl": "Videoytan kunde inte starta: ingen GL-renderingskontext (se loggen)",
+  "toast.noGl": "Kunde inte starta videoytan: ingen GL-renderingskontext (se loggen)",
   "toast.openFailed": "Kunde inte öppna {path}: {error}",
   "toast.playbackFailed": "Uppspelning misslyckades: {error}"
 }

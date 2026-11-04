@@ -7,7 +7,7 @@
   "center.next": "下一个文件 / 章节 (>)",
   "center.prev": "上一个文件 / 章节 (<)",
   "dialog.open.title": "打开媒体",
-  "drop.hint": "放下来播放",
+  "drop.hint": "拖放文件即可播放",
   "header.close": "关闭 (Ctrl+Q)",
   "header.open": "打开媒体 (Ctrl+O)",
   "menu.fullscreen": "全屏",

@@ -14,8 +14,8 @@
   "menu.label": "Menü",
   "menu.open": "Média megnyitása…",
   "menu.quit": "Kilépés",
-  "toast.dndExtra": "A(z) {count} ejtett fájl közül az első lejátszása (még nincs lejátszási lista)",
-  "toast.noGl": "A video felülete nem indult el: nincs GL renderelési kontextus (lásd a naplót)",
+  "toast.dndExtra": "Az ide ejtett {count} fájl közül az első lejátszása (még nincs lejátszási lista)",
+  "toast.noGl": "A videofelület nem indult el: nincs GL-renderelési kontextus (lásd a naplót)",
   "toast.openFailed": "Nem sikerült megnyitni a(z) {path} fájlt: {error}",
   "toast.playbackFailed": "A lejátszás sikertelen: {error}"
 }

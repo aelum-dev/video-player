@@ -13,8 +13,8 @@
   "menu.fullscreen": "Plena ekrano",
   "menu.label": "Menuo",
   "menu.open": "Malfermi amaskomunikilojn…",
-  "menu.quit": "Eliri",
-  "toast.dndExtra": "Ludante la unuan el {count} faligitaj dosieroj (ankoraŭ ne estas ludlisto)",
+  "menu.quit": "Forlasi",
+  "toast.dndExtra": "Ludado de la unua el {count} faligitaj dosieroj (ankoraŭ ne estas ludlisto)",
   "toast.noGl": "La videosurfaco ne ekfunkciis: neniu GL-rendera kunteksto (vidu la protokolon)",
   "toast.openFailed": "Ne eblis malfermi {path}: {error}",
   "toast.playbackFailed": "Ludado malsukcesis: {error}"

@@ -11,11 +11,11 @@
   "header.close": "Chiudi (Ctrl+Q)",
   "header.open": "Apri supporti (Ctrl+O)",
   "menu.fullscreen": "Schermo intero",
-  "menu.label": "Menu",
+  "menu.label": "Menù",
   "menu.open": "Apri supporti…",
   "menu.quit": "Esci",
-  "toast.dndExtra": "Riproduzione del primo dei {count} file rilasciati (nessun elenco di riproduzione ancora disponibile)",
-  "toast.noGl": "La superficie video non è stata avviata: nessun contesto di rendering GL (vedere il log)",
+  "toast.dndExtra": "Riproduzione del primo dei {count} file rilasciati (elenco di riproduzione non ancora disponibile)",
+  "toast.noGl": "Impossibile avviare la superficie video: nessun contesto di rendering GL (vedere il log)",
   "toast.openFailed": "Impossibile aprire {path}: {error}",
   "toast.playbackFailed": "Riproduzione non riuscita: {error}"
 }

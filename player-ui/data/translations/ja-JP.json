@@ -15,7 +15,7 @@
   "menu.open": "メディアを開く…",
   "menu.quit": "終了",
   "toast.dndExtra": "ドロップされた {count} 個のファイルのうち最初のものを再生しています (プレイリストはまだありません)",
-  "toast.noGl": "ビデオサーフェスの起動に失敗しました: GL レンダーコンテキストがありません (ログを参照してください)",
-  "toast.openFailed": "{path} を開けませんでした: {error}",
-  "toast.playbackFailed": "再生に失敗しました: {error}"
+  "toast.noGl": "ビデオサーフェスの起動に失敗しました：GL レンダーコンテキストがありません (ログを参照してください)",
+  "toast.openFailed": "{path} を開けませんでした：{error}",
+  "toast.playbackFailed": "再生に失敗しました：{error}"
 }

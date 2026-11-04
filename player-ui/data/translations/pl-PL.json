@@ -14,7 +14,7 @@
   "menu.label": "Menu",
   "menu.open": "Otwórz nośniki…",
   "menu.quit": "Zakończ",
-  "toast.dndExtra": "Odtwarzanie pierwszego z {count} upuszczonych plików (brak listy odtwarzania)",
+  "toast.dndExtra": "Odtwarzanie pierwszego z {count} upuszczonych plików (brak playlisty)",
   "toast.noGl": "Nie można uruchomić powierzchni wideo: brak kontekstu renderowania GL (zobacz dziennik)",
   "toast.openFailed": "Nie można otworzyć {path}: {error}",
   "toast.playbackFailed": "Odtwarzanie nie powiodło się: {error}"
