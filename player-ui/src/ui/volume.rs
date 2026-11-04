@@ -28,12 +28,15 @@ const OSD_HIDE_MS: u64 = 1_200;
 /// Per wheel notch — the coarse gesture. The keys keep the fine 5%.
 const WHEEL_VOLUME_STEP: i32 = 10;
 /// Fixed capsule width: the readout never feeds the layout. Fits the
-/// widest possible one ("130%", measured 31 px).
-const OSD_WIDTH: i32 = 56;
+/// widest possible one ("130%", measured 31 px) plus the capsule padding
+/// style.css puts around the content.
+const OSD_WIDTH: i32 = 64;
 /// Bar size. A LevelBar defaults to halign fill and stretches to the
-/// box, so the size is pinned here and the bar is centered.
-const BAR_WIDTH: i32 = 30;
-const BAR_HEIGHT: i32 = 160;
+/// box, so the size is pinned here and the bar is centered. Slimmer
+/// than the old 30px slab, but a real bar: 12px measured as too thin
+/// over video.
+const BAR_WIDTH: i32 = 18;
+const BAR_HEIGHT: i32 = 140;
 /// Fill tween after a step: the label shows the number at once, the bar
 /// eases to it.
 const ANIM_MS: i64 = 250;
@@ -82,6 +85,7 @@ pub(super) struct VolumeOsd {
 
 pub(super) fn build() -> VolumeOsd {
     let icon = gtk::Image::from_icon_name("audio-volume-high-symbolic");
+    icon.set_halign(gtk::Align::Center);
     // LevelBar, not a Scale: an indicator never takes input. Vertical
     // orientation is builder-only in the bindings.
     let bar = gtk::LevelBar::builder()
@@ -100,11 +104,17 @@ pub(super) fn build() -> VolumeOsd {
     bar.set_value(100.0);
     let percent = gtk::Label::builder()
         .label("100%")
-        .xalign(0.5)
+        // Odometer, not centering: the slot is the width of the widest
+        // readout (CSS min-width fits "130%") and the text is right-aligned
+        // in it, so the "%" and every digit column stay pinned when the
+        // digit count changes — centering makes the digits drift ±half a
+        // glyph at every 2↔3-digit transition (the user's "digits drift").
+        .xalign(1.0)
+        .halign(gtk::Align::Center)
         .build();
     percent.add_css_class("volume-osd-percent");
 
-    let box_ = gtk::Box::new(gtk::Orientation::Vertical, 10);
+    let box_ = gtk::Box::new(gtk::Orientation::Vertical, 12);
     box_.add_css_class("volume-osd");
     box_.set_size_request(OSD_WIDTH, -1);
     box_.append(&icon);

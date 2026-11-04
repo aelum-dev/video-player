@@ -277,31 +277,47 @@ label.drop-hint {
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
-/* Volume OSD on the right edge. No scrim: the icon, bar and percent float
-   directly over the video. The bar is a LevelBar (an indicator, never
-   takes input); the theme already fills blocks with the accent — the one
-   palette color that reads over video (same reasoning as the seek fill),
-   so only the always-dark trough is set here. */
+/* Volume OSD on the right edge: a small dark HUD capsule, like a phone's
+   volume indicator. Floating the icon/bar/percent straight over the video
+   fails there — a translucent-white track and icon disappear into bright
+   footage, and no text-shadow saves them. The capsule shades itself, so
+   the same ink reads on any picture. The bar is a LevelBar (an indicator,
+   never takes input); the theme already fills blocks with the accent —
+   the one palette color that reads over video (same reasoning as the
+   seek fill) — so only the always-dark trough is set here. */
 .volume-osd {
-    padding: 20px 8px;
+    padding: 18px 14px;
+    border-radius: 999px;
+    background-color: alpha(black, 0.55);
+    /* 1px rim keeps the capsule edge defined over near-black footage,
+       where a plain fill would vanish. */
+    border: 1px solid alpha(#f6f6f6, 0.12);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
     color: #f6f6f6;
 }
 
 .volume-osd image {
-    -gtk-icon-size: 28px;
+    -gtk-icon-size: 24px;
+    -gtk-icon-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 .volume-osd label {
     font-variant-numeric: tabular-nums;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-    /* No width reservation: the box size is fixed in code (volume.rs),
-       so the readout never feeds the layout. */
+    /* Fixed digit slot (odometer): wide enough for the widest readout —
+       measured "130%" is 2.13em — and the text is right-aligned in it
+       (xalign in volume.rs), so no digit moves when the count changes.
+       The box size stays fixed in code too — the readout never feeds
+       the layout. */
+    min-width: 2.2em;
 }
 
 levelbar.volume-osd-bar trough {
-    /* Size is set in code (volume.rs); this rule is colors and shape only. */
+    /* Size is set in code (volume.rs); this rule is colors and shape only.
+       Fainter than the seek trough: it sits inside the dark capsule, which
+       already carries the contrast. */
     border-radius: 999px;
-    background-color: rgba(255, 255, 255, 0.25);
+    background-color: rgba(255, 255, 255, 0.18);
 }
 
 levelbar.volume-osd-bar trough > block {
