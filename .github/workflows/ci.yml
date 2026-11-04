@@ -7,6 +7,9 @@
 #
 # There is no fmt gate on purpose: the tree is not rustfmt-clean, and
 # reformatting it would bury the comments that carry the reasons.
+#
+# Action versions are the current majors: the v4 generation still declares
+# Node 20, and every run then opens with a deprecation annotation.
 
 name: CI
 
@@ -34,13 +37,13 @@ jobs:
       - name: Provide git for actions/checkout
         run: pacman -Syu --noconfirm --needed git
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install the stack (the packages from the Dockerfile)
         run: pacman -Syu --noconfirm --needed rust pkgconf gtk4 libadwaita mpv libglvnd
 
       - name: Cache crates.io downloads
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -70,7 +73,7 @@ jobs:
       - name: Provide git for actions/checkout
         run: pacman -Syu --noconfirm --needed git
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install makepkg and the build stack
         run: pacman -Syu --noconfirm --needed base-devel rust pkgconf gtk4 libadwaita mpv libglvnd
@@ -86,7 +89,7 @@ jobs:
           runuser -u builder -- env HOME=/home/builder ./scripts/build-pkg.sh --no-sign
 
       - name: Upload the package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: arch-package
           path: dist/
