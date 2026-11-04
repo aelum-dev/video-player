@@ -1,9 +1,12 @@
 //! Core smoke test: a silent WAV through the headless+null-ao engine.
 //! No display or audio device required — runs in CI and Docker.
 
+mod common;
+
 use std::path::Path;
 use std::time::{Duration, Instant};
 
+use common::Scratch;
 use player_core::{MpvEngine, PlaybackEngine, PlayerEvent, PropertyValue};
 
 /// One second of 8 kHz 16-bit mono silence.
@@ -32,9 +35,8 @@ fn write_silent_wav(path: &Path) {
 
 #[test]
 fn loads_a_file_and_reports_events() {
-    let dir = std::env::temp_dir().join("player-core-test");
-    std::fs::create_dir_all(&dir).unwrap();
-    let path = dir.join("silence.wav");
+    let scratch = Scratch::new("smoke");
+    let path = scratch.join("silence.wav");
     write_silent_wav(&path);
 
     let engine = MpvEngine::silent().expect("engine init");
@@ -69,9 +71,8 @@ fn loads_a_file_and_reports_events() {
 /// the front-end's play button is the deliberate start.
 #[test]
 fn a_title_opened_without_autoplay_waits_paused_on_its_first_frame() {
-    let dir = std::env::temp_dir().join("player-core-test");
-    std::fs::create_dir_all(&dir).unwrap();
-    let path = dir.join("silence-paused.wav");
+    let scratch = Scratch::new("paused");
+    let path = scratch.join("silence-paused.wav");
     write_silent_wav(&path);
 
     let engine = MpvEngine::silent().expect("engine init");
@@ -120,8 +121,9 @@ fn a_title_opened_without_autoplay_waits_paused_on_its_first_frame() {
 /// property is what tells the front-end which file is now on screen.
 #[test]
 fn one_file_opens_a_directory_playlist_that_steps_forward_and_back() {
-    let dir = std::env::temp_dir().join("player-core-playlist");
-    std::fs::create_dir_all(&dir).unwrap();
+    // A directory of its own, empty to start: the count below is exact, so a
+    // file left over from another run would join the playlist.
+    let dir = Scratch::new("playlist");
     for name in ["a.wav", "b.wav", "c.wav"] {
         write_silent_wav(&dir.join(name));
     }
@@ -194,13 +196,12 @@ fn one_file_opens_a_directory_playlist_that_steps_forward_and_back() {
 /// nobody "re-asserts" the user's choice away again.
 #[test]
 fn user_config_can_disable_the_directory_playlist() {
-    let conf = std::env::temp_dir().join("player-core-confprio");
-    std::fs::create_dir_all(&conf).unwrap();
+    let conf = Scratch::new("confprio");
     std::fs::write(conf.join("mpv.conf"), "autocreate-playlist=no\n").expect("write mpv.conf");
 
     let engine = mpv_engine::Engine::headless()
         .property("config", "yes")
-        .property("config-dir", conf.to_str().unwrap())
+        .property("config-dir", conf.path().to_str().unwrap())
         .property("autocreate-playlist", "same") // the app default, as user_config sets
         .property("directory-mode", "ignore")
         .property("ao", "null")
@@ -213,11 +214,10 @@ fn user_config_can_disable_the_directory_playlist() {
     );
 
     // With no config file in the directory, the app default stands.
-    let empty = std::env::temp_dir().join("player-core-confprio-empty");
-    std::fs::create_dir_all(&empty).unwrap();
+    let empty = Scratch::new("confprio-empty");
     let engine = mpv_engine::Engine::headless()
         .property("config", "yes")
-        .property("config-dir", empty.to_str().unwrap())
+        .property("config-dir", empty.path().to_str().unwrap())
         .property("autocreate-playlist", "same")
         .property("directory-mode", "ignore")
         .property("ao", "null")

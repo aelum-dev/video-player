@@ -2,7 +2,7 @@
 //!
 //! `mpv-engine` is the current adapter; if it stalls we can swap in
 //! hand-written FFI or a JSON-RPC subprocess adapter without touching UI
-//! or plugins (see PLAN.md).
+//! or plugins.
 
 use std::sync::Arc;
 
@@ -194,6 +194,19 @@ impl MpvEngine {
         // (time/position text over the video), so it stays off; the UI owns
         // all on-screen feedback.
         engine.set_property("osd-level", "0")?;
+        Self::from_engine(engine)
+    }
+
+    /// Video engine with the user's config switched off: the test/CI twin of
+    /// [`Self::video`], identical except that nothing in `~/.config/mpv/` can
+    /// change what it does. A probe that reads the user's `mpv.conf` gives
+    /// different results on different machines — on the author's box it has a
+    /// software-friendly profile, on someone else's anything at all.
+    pub fn video_isolated() -> Result<Self> {
+        let engine = mpv_engine::Engine::video()
+            .property("config", "no")
+            .build()?;
+        reassert_app_options(&engine, "libmpv")?;
         Self::from_engine(engine)
     }
 

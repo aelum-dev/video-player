@@ -5,9 +5,12 @@
 //! Default fixture is a tiny generated RGB24 AVI (self-contained).
 //! `MPV_TEST_VIDEO=/path/to/file` points the probe at another clip.
 
+mod common;
+
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
+use common::Scratch;
 use player_core::{MpvEngine, PlaybackEngine, PlayerEvent};
 
 /// Minimal uncompressed AVI (BI_RGB, 64×64 RGB24, bright gradient).
@@ -114,18 +117,19 @@ fn write_colorful_avi(path: &Path, frames: usize) {
 
 #[test]
 fn software_render_produces_video_frames() {
-    let dir = std::env::temp_dir().join("player-core-swtest");
-    std::fs::create_dir_all(&dir).unwrap();
+    let scratch = Scratch::new("swtest");
     let path: PathBuf = match std::env::var("MPV_TEST_VIDEO") {
         Ok(p) => PathBuf::from(p),
         Err(_) => {
-            let p = dir.join("color.avi");
+            let p = scratch.join("color.avi");
             write_colorful_avi(&p, 30);
             p
         }
     };
 
-    let engine = MpvEngine::video().expect("video engine init");
+    // Isolated deliberately: this asserts what OUR pipeline renders, so a line
+    // in someone's ~/.config/mpv/mpv.conf must not be able to change it.
+    let engine = MpvEngine::video_isolated().expect("video engine init");
     engine.inner().attach_sw_render(|| {}).expect("sw render attach");
     engine.open(path.to_str().unwrap(), true).expect("open");
 
