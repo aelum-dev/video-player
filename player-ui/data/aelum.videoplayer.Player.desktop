@@ -46,7 +46,73 @@ Name[zh]=视频
 Name[zh_CN]=视频
 Name[zh_TW]=影片
 GenericName=Media player
+# GenericName and Comment follow the same key rules as Name[] (POSIX locale
+# codes, language-only except where the written forms differ). Wording: the
+# msgids this box ships where it has them — mpv's `Multimedia player` and
+# `Play movies and songs` — and where it does not, the productive pattern of
+# the players' catalogs it does ship (amberol's `Music Player`: de Medien-
+# wiedergabe, fi Mediasoitin, eo Medialudilo after Muzikilo). pt is the one
+# language here whose two forms genuinely differ (`multimédia`/`multimídia`),
+# so it splits pt/pt_BR the way amberol's own entry does. A test in i18n.rs
+# fails if any supported locale falls through to the unlocalized text.
+GenericName[ar]=مُشَغِّل وسائط متعددة
+GenericName[bg]=Медиен плейър
+GenericName[ca]=Reproductor multimèdia
+GenericName[de]=Medienwiedergabe
+GenericName[el]=Αναπαραγωγή πολυμέσων
+GenericName[eo]=Medialudilo
+GenericName[es]=Reproductor multimedia
+GenericName[fa]=پخش‌کنندهٔ رسانه
+GenericName[fi]=Mediasoitin
+GenericName[fr]=Lecteur multimédia
+GenericName[he]=נגן מדיה
+GenericName[hu]=Médialejátszó
+GenericName[id]=Pemutar Media
+GenericName[it]=Lettore multimediale
+GenericName[ja]=マルチメディアプレイヤー
+GenericName[ko]=미디어 플레이어
+GenericName[nb]=Mediespiller
+GenericName[nl]=Mediaspeler
+GenericName[pl]=Odtwarzacz multimediów
+GenericName[pt]=Reprodutor de multimédia
+GenericName[pt_BR]=Reprodutor de multimídia
+GenericName[ru]=Мультимедийный проигрыватель
+GenericName[sv]=Mediaspelare
+GenericName[tr]=Çoklu ortam oynatıcı
+GenericName[uk]=Медіапрогравач
+GenericName[vi]=Trình phát đa phương tiện
+GenericName[zh]=多媒体播放器
+GenericName[zh_CN]=多媒体播放器
+GenericName[zh_TW]=多媒體播放器
 Comment=Play videos and audio
+Comment[ar]=شَغِّل الفيديو والصوت
+Comment[bg]=Възпроизвеждане на видео и аудио
+Comment[ca]=Reproduïu vídeos i àudios
+Comment[de]=Videos und Audio wiedergeben
+Comment[el]=Αναπαραγωγή βίντεο και ήχου
+Comment[eo]=Ludu videojn kaj aŭdion
+Comment[es]=Reproduzca vídeos y audio
+Comment[fa]=پخش ویدیو و صدا
+Comment[fi]=Toista videoita ja ääntä
+Comment[fr]=Lire des vidéos et de l'audio
+Comment[he]=נגן וידאו ושמע
+Comment[hu]=Videók és hanganyagok lejátszása
+Comment[id]=Memutar video dan audio
+Comment[it]=Riproduci video e audio
+Comment[ja]=動画と音声を再生する
+Comment[ko]=비디오 및 오디오 재생
+Comment[nb]=Spill av videoer og lyd
+Comment[nl]=Video's en audio afspelen
+Comment[pl]=Odtwarzaj filmy i dźwięk
+Comment[pt]=Reproduza vídeos e áudios
+Comment[ru]=Воспроизведение видео и аудио
+Comment[sv]=Spela videor och ljud
+Comment[tr]=Videoları ve sesi oynatın
+Comment[uk]=Відтворення відео та аудіо
+Comment[vi]=Phát video và âm thanh
+Comment[zh]=播放视频和音频
+Comment[zh_CN]=播放视频和音频
+Comment[zh_TW]=播放影片和音訊
 Exec=video-player %U
 TryExec=video-player
 Icon=aelum.videoplayer.Player

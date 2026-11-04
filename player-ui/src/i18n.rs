@@ -19,8 +19,9 @@
 //! This covers the app's own strings only. GTK's chrome (file chooser buttons,
 //! sort menus) is localized by GTK itself from the process locale. The launcher
 //! is the one place that cannot read these catalogs: it takes the app name from
-//! the desktop entry, so that file carries a copy of `app.name` per locale — a
-//! test below fails if the two ever disagree or a locale is missing.
+//! the desktop entry, so that file carries a copy of `app.name` per locale, and
+//! the translated `GenericName`/`Comment` the app itself never shows — tests
+//! below fail if the two ever disagree or a locale is missing.
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -390,27 +391,11 @@ mod tests {
         // launcher and the window title disagree. en-US is the entry's
         // unlocalized `Name`.
         let desktop = include_str!("../data/aelum.videoplayer.Player.desktop");
-        let localized: Vec<(&str, &str)> = desktop
-            .lines()
-            .filter_map(|line| {
-                let rest = line.strip_prefix("Name[")?;
-                let (locale, value) = rest.split_once("]=")?;
-                Some((locale, value))
-            })
-            .collect();
+        let localized = localized_values(desktop, "Name");
         assert!(!localized.is_empty(), "the desktop entry has no Name[] keys");
-        let base = desktop
-            .lines()
-            .find_map(|line| line.strip_prefix("Name="))
-            .expect("the desktop entry has an unlocalized Name");
+        let base = unlocalized_value(desktop, "Name");
         for code in SUPPORTED_LOCALES {
-            let (language, region) = code.split_once('-').unwrap_or((*code, ""));
-            let qualified = format!("{language}_{}", region.to_ascii_uppercase());
-            let shown = localized
-                .iter()
-                .find(|(locale, _)| *locale == qualified)
-                .or_else(|| localized.iter().find(|(locale, _)| *locale == language))
-                .map_or(base, |(_, value)| *value);
+            let shown = resolve_localized(&localized, base, code);
             let i18n = I18n::load(code);
             let own = i18n.t("app.name");
             assert_eq!(
@@ -418,16 +403,81 @@ mod tests {
                 "{code}: the launcher would show {shown:?}, the app calls itself {own:?}"
             );
         }
-        for (key, _) in &localized {
-            // A key for a language the app does not support is a stale one: it
-            // shows a name no catalog backs.
-            let (language, region) = key.split_once('_').unwrap_or((key, ""));
+        assert_no_stale_keys(&localized, "Name");
+    }
+
+    #[test]
+    fn the_descriptions_the_launcher_shows_exist_for_every_supported_locale() {
+        // `GenericName` and `Comment` are the entry's short descriptions. They
+        // have no catalog counterpart — the app never shows them — so the
+        // guard is coverage: every supported locale must resolve through GLib's
+        // preference order to a translated form, never fall through to the
+        // unlocalized English. Deleting any `GenericName[…]`/`Comment[…]` key
+        // makes its locale fall through and fails this test.
+        let desktop = include_str!("../data/aelum.videoplayer.Player.desktop");
+        for key in ["GenericName", "Comment"] {
+            let localized = localized_values(desktop, key);
+            assert!(!localized.is_empty(), "the desktop entry has no {key}[] keys");
+            let base = unlocalized_value(desktop, key);
+            for code in SUPPORTED_LOCALES {
+                // en-US is the entry's unlocalized value, like the Name.
+                if code == &FALLBACK {
+                    continue;
+                }
+                let shown = resolve_localized(&localized, base, code);
+                assert_ne!(
+                    shown, base,
+                    "{code}: the launcher would show the unlocalized {key}"
+                );
+            }
+            assert_no_stale_keys(&localized, key);
+        }
+    }
+
+    /// Every `Key[<locale>]=` value in a desktop entry, as (locale-key, value).
+    fn localized_values<'a>(desktop: &'a str, key: &str) -> Vec<(&'a str, &'a str)> {
+        let prefix = format!("{key}[");
+        desktop
+            .lines()
+            .filter_map(|line| {
+                let rest = line.strip_prefix(&prefix)?;
+                let (locale, value) = rest.split_once("]=")?;
+                Some((locale, value))
+            })
+            .collect()
+    }
+
+    /// The entry's unlocalized value for a key — the value GLib falls back to.
+    fn unlocalized_value<'a>(desktop: &'a str, key: &str) -> &'a str {
+        desktop
+            .lines()
+            .find_map(|line| line.strip_prefix(&format!("{key}=")))
+            .unwrap_or_else(|| panic!("the desktop entry has no unlocalized {key}"))
+    }
+
+    /// Resolve a localized key for one app locale the way GLib does:
+    /// `<language>_<REGION>` first, then `<language>`, then the unlocalized base.
+    fn resolve_localized<'a>(values: &[(&'a str, &'a str)], base: &'a str, code: &str) -> &'a str {
+        let (language, region) = code.split_once('-').unwrap_or((code, ""));
+        let qualified = format!("{language}_{}", region.to_ascii_uppercase());
+        values
+            .iter()
+            .find(|(locale, _)| *locale == qualified)
+            .or_else(|| values.iter().find(|(locale, _)| *locale == language))
+            .map_or(base, |(_, value)| *value)
+    }
+
+    /// Every key in the entry belongs to a language the app supports — a key
+    /// no catalog backs is a stale one.
+    fn assert_no_stale_keys(values: &[(&str, &str)], key: &str) {
+        for (locale, _) in values {
+            let (language, region) = locale.split_once('_').unwrap_or((locale, ""));
             assert!(
                 SUPPORTED_LOCALES.iter().any(|code| {
-                    let (l, r) = code.split_once('-').unwrap_or((*code, ""));
+                    let (l, r) = code.split_once('-').unwrap_or((code, ""));
                     l == language && (region.is_empty() || r.eq_ignore_ascii_case(region))
                 }),
-                "Name[{key}] is not a supported locale"
+                "{key}[{locale}] is not a supported locale"
             );
         }
     }
