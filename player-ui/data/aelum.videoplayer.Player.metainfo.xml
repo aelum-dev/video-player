@@ -4,9 +4,17 @@
 <component type="desktop-application">
   <id>aelum.videoplayer.Player</id>
   <metadata_license>CC0-1.0</metadata_license>
-  <project_license>MIT</project_license>
+  <project_license>GPL-3.0-only</project_license>
   <name>Video player</name>
   <summary>Modular media player for the Aelum desktop</summary>
+  <developer id="dev.aelum">
+    <name>Aelum</name>
+  </developer>
+  <url type="homepage">https://aelum.dev</url>
+  <url type="bugtracker">https://github.com/aelum-dev/video-player/issues</url>
+  <!-- No bundled content of its own: an empty OARS 1.1 rating is the
+       conventional "nothing to rate" marker for a player. -->
+  <content_rating type="oars-1.1"/>
   <description>
     <p>Plays video and audio through libmpv behind a minimal interface:
     the controls float over the video and fade when the pointer goes idle,
