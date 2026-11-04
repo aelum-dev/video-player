@@ -29,6 +29,13 @@
     <binary>video-player</binary>
   </provides>
   <releases>
+    <release version="0.1.2" date="2026-11-05">
+      <description>
+        <ul>
+          <li>The launcher's short description (GenericName and Comment) is now translated into all 28 supported languages.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.1" date="2026-11-04">
       <description>
         <ul>
