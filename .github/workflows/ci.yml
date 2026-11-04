@@ -1,0 +1,93 @@
+# GitHub Actions CI for the video player.
+#
+# The point of this workflow is the claim in README.md: the tree builds, lints
+# clean, its tests pass, and its package builds on a machine that has none of
+# the author's setup. So it runs on the same stack the Dockerfile uses — a
+# plain Arch container — rather than Ubuntu with hand-pinned library versions.
+#
+# There is no fmt gate on purpose: the tree is not rustfmt-clean, and
+# reformatting it would bury the comments that carry the reasons.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ── check: build, lint, headless tests ──────────────────────────────────────
+  check:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+      # archlinux:latest has no git, and actions/checkout needs it before any
+      # step of ours can run.
+      - name: Provide git for actions/checkout
+        run: pacman -Syu --noconfirm --needed git
+
+      - uses: actions/checkout@v4
+
+      - name: Install the stack (the packages from the Dockerfile)
+        run: pacman -Syu --noconfirm --needed rust pkgconf gtk4 libadwaita mpv libglvnd
+
+      - name: Cache crates.io downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      # --locked everywhere: Cargo.lock is what makes a run here mean the same
+      # thing as a run on someone else's machine.
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Clippy (the tree is kept at 0 warnings)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      # No display, no GPU, no audio device: the engine tests run mpv headless
+      # with ao=null and check its software renderer.
+      - name: Test
+        run: cargo test --workspace
+
+  # ── package: the Arch package build-pkg.sh produces ─────────────────────────
+  package:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+      - name: Provide git for actions/checkout
+        run: pacman -Syu --noconfirm --needed git
+
+      - uses: actions/checkout@v4
+
+      - name: Install makepkg and the build stack
+        run: pacman -Syu --noconfirm --needed base-devel rust pkgconf gtk4 libadwaita mpv libglvnd
+
+      # makepkg refuses to run as root, and a container job runs as root — the
+      # same resolution the docker repo's build-iso.sh uses: a dedicated user
+      # that owns the tree. Unsigned here: the signing key is a local secret
+      # (see release.env.example), and CI only has to prove the build.
+      - name: Build the package
+        run: |
+          useradd -m builder
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+          runuser -u builder -- env HOME=/home/builder ./scripts/build-pkg.sh --no-sign
+
+      - name: Upload the package
+        uses: actions/upload-artifact@v4
+        with:
+          name: arch-package
+          path: dist/
+          if-no-files-found: error
