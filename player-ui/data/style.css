@@ -84,7 +84,16 @@ window.background.player-window {
     -gtk-icon-size: 24px;
 }
 
+/* Press, not hover, is the moment that earns the filled box: a control
+   lighting up under the pointer alone reads as "already chosen" over the
+   video (the old inverted look), so hover stays a faint wash and the
+   click gets the strong one. The :active rule must come after :hover —
+   both match while a press is held (same specificity, later wins). */
 .floating-bar button:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.floating-bar button:active {
     background: rgba(255, 255, 255, 0.15);
 }
 
