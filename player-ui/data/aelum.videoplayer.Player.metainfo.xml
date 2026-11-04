@@ -29,6 +29,14 @@
     <binary>video-player</binary>
   </provides>
   <releases>
+    <release version="0.1.1" date="2026-11-04">
+      <description>
+        <ul>
+          <li>Fast volume scrolling registers every notch; rapid steps are no longer dropped.</li>
+          <li>The volume keeps values above 100 instead of the playbar slider pulling it back down.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-11-04"/>
   </releases>
 </component>
