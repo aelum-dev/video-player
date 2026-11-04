@@ -143,7 +143,7 @@ cat <<EOF
 
 Install (after ../repo/publish-repo.sh, on any system with the [aelum] repo):
 
-    sudo pacman -Sy && sudo pacman -S ${pkgname:?}
+    sudo pacman -Sy && sudo pacman -S ${PKG_NAME}
 
 Or directly from disk on a test host:
 
