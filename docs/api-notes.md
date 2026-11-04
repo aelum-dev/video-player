@@ -64,9 +64,10 @@ before trusting a version-specific claim.
   (the "double-click fullscreen stops working" bug). For repeat-pair actions,
   use the non-claiming `EventControllerLegacy` + a timestamp pair state machine
   (`click_pair`, unit-tested) honouring `gtk-double-click-time`.
-- `gapplication action dev.mpvgtk.Player <name>` (name **without** the `app.`
-  prefix) activates the app's actions over D-Bus — how the running app was driven
-  from the CLI for testing (no ydotool/wtype on this box).
+- `gapplication action aelum.videoplayer.Player <name>` (name **without** the
+  `app.` prefix) activates the app's actions over D-Bus — how the running app
+  was driven from the CLI for testing, when no input-injection tool is
+  installed.
 - `glib::monotonic_time()` (µs) + a 500 ms `timeout_add_local` tick is a cheap
   idle detector; no per-motion source churn.
 
@@ -236,8 +237,8 @@ before trusting a version-specific claim.
 
 How the project is exercised. Box-specific state (GPU, monitor, scale
 value, personal media paths, pinned versions) deliberately stays out —
-that lives in the untracked journal; the verified stack table in PLAN.md
-carries the versions.
+that lives in the untracked journal; the versions a build needs are in
+README.md, the crate pins in AGENTS.md.
 
 - Wayland under Hyprland (a wlroots-class compositor). Two display-path
   consequences: Xwayland there is rootless — an x11grab of its root is

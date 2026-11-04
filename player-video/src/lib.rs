@@ -12,7 +12,7 @@
 //! `Send`, so it only sets a shared flag; a main-thread timer turns the
 //! flag into `queue_render()`.
 //!
-//! On the "swappable sink" plan (PLAN.md): this crate *is* the seam —
+//! On the swappable-sink rule: this crate *is* the seam —
 //! one widget, one crate, so the GL dependency stays out of `player-core`
 //! and a second sink (software, DMA-BUF/GSK) would be a sibling module
 //! here. A `RenderSink` trait over one implementation is speculation;

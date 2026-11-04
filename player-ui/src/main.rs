@@ -45,7 +45,7 @@ const LAST_PLAYED_REFRESH_MS: i64 = 5_000;
 /// with one engine, dyn-dispatch buys nothing the constructor swap can't
 /// do, and the GL seam (`VideoArea`, the render check below) needs the
 /// concrete type anyway. The trait seam in `player_core::engine` is what
-/// a binding swap would rework — see PLAN.md.
+/// a binding swap would rework.
 #[derive(Clone)]
 struct Shared {
     engine: Arc<MpvEngine>,

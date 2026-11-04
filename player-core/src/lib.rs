@@ -6,7 +6,7 @@
 //!
 //! The plugin registry was removed before Milestone 4: it had no users, and
 //! a trait designed without a real plugin drifts. Re-introduce it together
-//! with the first plugin (see PLAN.md).
+//! with the first plugin, designed against that plugin's actual needs.
 
 pub mod engine;
 pub mod last_played;
