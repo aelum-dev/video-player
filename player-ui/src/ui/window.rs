@@ -211,14 +211,28 @@ fn build_playbar(shared: &Shared) -> (gtk::Revealer, PlayBar) {
             }
         });
     }
-    let speed_reset = gtk::Button::builder().label("Normal").build();
-    {
+    // Quick jumps for the speeds people actually step through. They only
+    // move the adjustment: the slider's value-changed handler stays the one
+    // path that updates the button label and mpv, so the controls cannot
+    // drift apart. ("Normal" was a second reset button; 1.0× in the row
+    // does the same job in the same shape as the other presets.)
+    let speed_row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    for (label, speed) in [
+        ("1.0×", 1.0_f64),
+        ("1.25×", 1.25),
+        ("1.50×", 1.5),
+        ("1.75×", 1.75),
+        ("2.00×", 2.0),
+    ] {
+        let preset = gtk::Button::builder().label(label).build();
+        preset.add_css_class("pill");
         let speed_scale = speed_scale.clone();
-        speed_reset.connect_clicked(move |_| speed_scale.set_value(1.0));
+        preset.connect_clicked(move |_| speed_scale.set_value(speed));
+        speed_row.append(&preset);
     }
     let speed_box = gtk::Box::new(gtk::Orientation::Vertical, 6);
     speed_box.append(&speed_scale);
-    speed_box.append(&speed_reset);
+    speed_box.append(&speed_row);
     speed_button.set_popover(Some(&gtk::Popover::builder().child(&speed_box).build()));
 
     let fullscreen_button = flat_button(

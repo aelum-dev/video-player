@@ -122,11 +122,12 @@ before trusting a version-specific claim.
   lands on the **`menubutton` wrapper**, while the visible background/fill is
   drawn by the inner `button` node, which carries none of the widget's
   classes. Rules scoped as `.flat button` or `.bar > button` never hit a
-  menu button; the matching leg is `menubutton.flat button`. (And the
-  popover's own node hangs under that inner `button`, so bar-scoped
-  descendant rules reach into popovers too — counter-rules on
-  `popover button` restore chrome. Settled with red-border probes on both
-  node kinds.)
+  menu button; the matching leg is `menubutton.flat > button` — child
+  combinator, not descendant: the popover's own node hangs under that
+  inner `button`, so a *descendant* leg (`menubutton.flat button`) also
+  styles everything inside the popover (that's how 44/58px min-sizes and
+  big labels leaked into the speed/volume dropdowns). Settled with
+  red-border probes on both node kinds.
 
 ## Key facts learned about the mpv render API
 - **`mpv_render_context_render()` leaves the FBO binding at 0.** Any readback must

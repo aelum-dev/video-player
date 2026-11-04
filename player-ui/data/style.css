@@ -78,7 +78,16 @@ window.background.player-window {
     color: #f6f6f6;
 }
 
-.floating-bar button {
+/* Hit sizes for the bar's own buttons. The `menubutton.flat > button` leg
+   reaches the drawn inner button of the volume/speed/"..." controls: their
+   classes (the .flat included) sit on the `menubutton` wrapper node, not on
+   the button node (red-border probes; the fact is in api-notes). The child
+   combinator on that leg is what keeps these sizes from leaking INTO the
+   attached popovers — the popover node hangs off the inner button, so a
+   descendant leg inflated every popover control into a 44/58px, 1.1em
+   monster: the oversized dropdowns. */
+.floating-bar button.flat,
+.floating-bar menubutton.flat > button {
     min-height: 44px;
     min-width: 44px;
     -gtk-icon-size: 24px;
@@ -86,17 +95,9 @@ window.background.player-window {
 
 /* Hover/press/checked fills are drawn as the button node's background, and
    the corner radius shapes that box: a full pill at every size (999px
-   clamps to half the height, like the seek sliders). The second selector
-   leg is what reaches the volume/speed/"..." controls: a MenuButton keeps
-   its CSS classes (the .flat included) on its outer `menubutton` node,
-   and the drawn fill belongs to an inner `button` node that has none of
-   them — which is also why scoping by a child of `.floating-bar` misses
-   them: their button is not a child of the bar, it is a child of the
-   wrapper. (Settled with red-border probes; the fact is in api-notes.)
-   Descendant legs therefore reach popover contents too; the exclusion
-   rules at the end of this block put those back to normal chrome. */
+   clamps to half the height, like the seek sliders). */
 .floating-bar button.flat,
-.floating-bar menubutton.flat button {
+.floating-bar menubutton.flat > button {
     border-radius: 999px;
 }
 
@@ -106,34 +107,34 @@ window.background.player-window {
    click gets the strong one. The :active rule must come after :hover —
    both match while a press is held (same specificity, later wins). */
 .floating-bar button.flat:hover,
-.floating-bar menubutton.flat button:hover {
+.floating-bar menubutton.flat > button:hover {
     background: rgba(255, 255, 255, 0.06);
 }
 
 .floating-bar button.flat:active,
-.floating-bar menubutton.flat button:active {
+.floating-bar menubutton.flat > button:active {
     background: rgba(255, 255, 255, 0.15);
 }
 
 /* The menu buttons (volume/speed/menu) stay :checked for as long as their
    popover is open. Left to the theme that shows only a lighter outline-ish
    wash, which reads as the press box "fading" the moment the mouse is
-   released — so keep the exact press fill while the popover is up. Only
-   nodes carrying the two legs above match, and neither the mute toggle
-   nor the speed "Normal" (never :checked) is among them. */
+   released — so keep the exact press fill while the popover is up. */
 .floating-bar button.flat:checked,
-.floating-bar menubutton.flat button:checked {
+.floating-bar menubutton.flat > button:checked {
     background: rgba(255, 255, 255, 0.15);
 }
 
-/* Popover contents stay normal chrome: re-round the controls inside the
-   popovers (the descendant legs above pill-shaped them by accident;
-   6px is libadwaita's own button radius). */
-.floating-bar popover button {
-    border-radius: 6px;
+/* The speed preset buttons opt into the pill shape. Nothing else inside a
+   popover matches the bar rules anymore (the `>` legs stop at the inner
+   button), so this styles exactly the presets — the mute toggle and any
+   future plain popover control keep the theme's chrome. */
+.floating-bar popover button.pill {
+    border-radius: 999px;
 }
 
-.floating-bar button label {
+.floating-bar button.flat label,
+.floating-bar menubutton.flat > button label {
     font-size: 1.1em;
 }
 
@@ -149,14 +150,17 @@ window.background.player-window {
 }
 
 /* The playback bar is the one used while watching: its controls are a
-   size step larger than the header's. */
-.floating-playbar button {
+   size step larger than the header's. Scopes match the .floating-bar block —
+   the `>` leg keeps this off the controls inside the attached popovers. */
+.floating-playbar button.flat,
+.floating-playbar menubutton.flat > button {
     min-height: 58px;
     min-width: 58px;
     -gtk-icon-size: 34px;
 }
 
-.floating-playbar button label {
+.floating-playbar button.flat label,
+.floating-playbar menubutton.flat > button label {
     font-size: 1.3em;
 }
 
