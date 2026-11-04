@@ -359,7 +359,9 @@ fn click_pair(last: i64, now: i64, gap: i64) -> (i64, bool) {
 pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::ApplicationWindow {
     let window = adw::ApplicationWindow::new(app);
     window.set_title(Some(i18n::t("app.name").as_str()));
-    window.set_default_size(1000, 600);
+    // 16:9: the video fills the window (header/playbar are overlays), so a
+    // 16:9 default shows typical content with no letterbox bars.
+    window.set_default_size(1024, 576);
     window.add_css_class("player-window");
 
     let video = VideoArea::new(shared.engine.clone());
