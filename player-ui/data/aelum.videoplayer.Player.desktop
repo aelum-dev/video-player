@@ -1,10 +1,52 @@
 [Desktop Entry]
 Type=Application
-Name=Video player
+# The unlocalized Name is the en-US string.
+Name=Videos
+# Name[] for every locale the app speaks — the same 28 as data/translations, and
+# the same wording as each catalog's `app.name`, so the launcher and the window
+# title never disagree. A test in i18n.rs fails if either half drifts.
+# Two rules decide the key and the wording:
+# - The key is a POSIX locale code, never the app's BCP-47 code: GLib reads
+#   LC_ALL/LC_MESSAGES/LANG and tries `Name[de_DE.UTF-8]` → `Name[de_DE]` →
+#   `Name[de]`, so `Name[de-DE]` is never matched (measured against this box).
+#   Keys are language-only where one form serves the whole language, so de-AT and
+#   pt-PT users get a translated name — the same language fallback select_locale
+#   applies. `zh` needs the territory (the two written forms differ); a bare `zh`
+#   carries the simplified form, which is also select_locale's fallback.
+# - The wording is the msgid "Videos" in the catalogs this box ships
+#   (xdg-user-dirs, kio6, tinysparql). Where they disagreed, the app name won
+#   over the folder name: ar drops the definite article, he/pl follow GNOME's own
+#   app names, ru/sv/nb the plain plural, vi drops xdg's archaic `Ảnh động`.
+Name[ar]=فيديو
+Name[bg]=Видео
+Name[ca]=Vídeos
+Name[de]=Videos
+Name[el]=Βίντεο
+Name[eo]=Videoj
+Name[es]=Vídeos
+Name[fa]=ویدیوها
+Name[fi]=Videot
+Name[fr]=Vidéos
+Name[he]=סרטונים
+Name[hu]=Videók
+Name[id]=Video
+Name[it]=Video
+Name[ja]=ビデオ
+Name[ko]=비디오
+Name[nb]=Videoer
+Name[nl]=Video's
+Name[pl]=Filmy
+Name[pt]=Vídeos
+Name[ru]=Видео
+Name[sv]=Videor
+Name[tr]=Videolar
+Name[uk]=Відео
+Name[vi]=Video
+Name[zh]=视频
+Name[zh_CN]=视频
+Name[zh_TW]=影片
 GenericName=Media player
 Comment=Play videos and audio
-# Name/Comment translations follow the app's catalog (data/translations):
-# add Name[de-DE]=… etc. when those locales land.
 Exec=video-player %U
 TryExec=video-player
 Icon=aelum.videoplayer.Player

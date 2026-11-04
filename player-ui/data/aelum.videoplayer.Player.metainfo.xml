@@ -5,7 +5,7 @@
   <id>aelum.videoplayer.Player</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-only</project_license>
-  <name>Video player</name>
+  <name>Videos</name>
   <summary>Modular media player for the Aelum desktop</summary>
   <developer id="dev.aelum">
     <name>Aelum</name>

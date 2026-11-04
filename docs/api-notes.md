@@ -151,6 +151,23 @@ before trusting a version-specific claim.
 - `set_direction` twice (once via a subtree walk, once directly) is idempotent,
   so overlapping calls cost nothing.
 
+### Desktop-entry localization (the launcher reads no catalog of ours)
+- A localized key is a **POSIX locale code, never a BCP-47 code**: GLib's
+  `DesktopAppInfo` tries `Name[de_DE.UTF-8]` → `Name[de_DE]` → `Name[de]` and
+  then the unlocalized `Name`. `Name[de-DE]` is simply never matched — and
+  `desktop-file-validate` 0.28 does not look at the locale part of a key at all,
+  so the wrong form is silent. A language-only key covers every region of that
+  language (`LC_ALL=pt_BR.UTF-8` picked `Name[pt]`), which is what lets the
+  entry resolve like `i18n::select_locale`.
+- That lookup reads **`LC_ALL`/`LC_MESSAGES`/`LANG` from the environment**, not
+  the C library's locale: calling `setlocale()` without exporting the variables
+  leaves the launcher on the unlocalized `Name`.
+- The locale lookup string is computed **once per process** (`g_once_init_enter`),
+  so probing several locales needs one process per locale.
+- `Gio.DesktopAppInfo` is deprecated in this glib — `GioUnix.DesktopAppInfo` is
+  the same type; `get_name()` is what a shell shows, `get_locale_string("Name")`
+  is the key lookup behind it.
+
 ## Key facts learned about the mpv render API
 - **`mpv_render_context_render()` leaves the FBO binding at 0.** Any readback must
   bind `GL_READ_FRAMEBUFFER` (0x8CA8) first; and rebind the toolkit's FBO after the

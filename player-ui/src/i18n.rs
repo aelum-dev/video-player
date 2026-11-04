@@ -17,7 +17,10 @@
 //! catalog is missing a key, carries an unknown key, or loses a `{placeholder}`.
 //!
 //! This covers the app's own strings only. GTK's chrome (file chooser buttons,
-//! sort menus) is localized by GTK itself from the process locale.
+//! sort menus) is localized by GTK itself from the process locale. The launcher
+//! is the one place that cannot read these catalogs: it takes the app name from
+//! the desktop entry, so that file carries a copy of `app.name` per locale — a
+//! test below fails if the two ever disagree or a locale is missing.
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -293,7 +296,7 @@ mod tests {
         // English and an unknown key stays itself. This is also what keeps a
         // partially translated future catalog safe, key by key.
         let i18n = I18n::load("hr-HR");
-        assert_eq!(i18n.t("app.name"), "Video player");
+        assert_eq!(i18n.t("app.name"), "Videos");
         assert_eq!(i18n.t("no.such.key"), "no.such.key");
     }
 
@@ -371,6 +374,60 @@ mod tests {
             assert!(
                 SUPPORTED_LOCALES.contains(code),
                 "{code} has a catalog but is not a supported locale"
+            );
+        }
+    }
+
+    #[test]
+    fn the_name_the_launcher_shows_is_the_name_the_app_uses() {
+        // The launcher cannot read these catalogs: it takes the name from the
+        // desktop entry, resolving `Name[<locale>]` the way GLib does —
+        // `<language>_<REGION>` first, then `<language>`, never the app's
+        // BCP-47 code (measured against this box's glib). Two failures live
+        // here: a supported locale with no key the launcher would match, which
+        // shows up as an English launcher name over an app that speaks the
+        // language; and a name that differs from `app.name`, which makes the
+        // launcher and the window title disagree. en-US is the entry's
+        // unlocalized `Name`.
+        let desktop = include_str!("../data/aelum.videoplayer.Player.desktop");
+        let localized: Vec<(&str, &str)> = desktop
+            .lines()
+            .filter_map(|line| {
+                let rest = line.strip_prefix("Name[")?;
+                let (locale, value) = rest.split_once("]=")?;
+                Some((locale, value))
+            })
+            .collect();
+        assert!(!localized.is_empty(), "the desktop entry has no Name[] keys");
+        let base = desktop
+            .lines()
+            .find_map(|line| line.strip_prefix("Name="))
+            .expect("the desktop entry has an unlocalized Name");
+        for code in SUPPORTED_LOCALES {
+            let (language, region) = code.split_once('-').unwrap_or((*code, ""));
+            let qualified = format!("{language}_{}", region.to_ascii_uppercase());
+            let shown = localized
+                .iter()
+                .find(|(locale, _)| *locale == qualified)
+                .or_else(|| localized.iter().find(|(locale, _)| *locale == language))
+                .map_or(base, |(_, value)| *value);
+            let i18n = I18n::load(code);
+            let own = i18n.t("app.name");
+            assert_eq!(
+                shown, own,
+                "{code}: the launcher would show {shown:?}, the app calls itself {own:?}"
+            );
+        }
+        for (key, _) in &localized {
+            // A key for a language the app does not support is a stale one: it
+            // shows a name no catalog backs.
+            let (language, region) = key.split_once('_').unwrap_or((key, ""));
+            assert!(
+                SUPPORTED_LOCALES.iter().any(|code| {
+                    let (l, r) = code.split_once('-').unwrap_or((*code, ""));
+                    l == language && (region.is_empty() || r.eq_ignore_ascii_case(region))
+                }),
+                "Name[{key}] is not a supported locale"
             );
         }
     }
