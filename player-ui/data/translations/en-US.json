@@ -1,0 +1,21 @@
+{
+  "app.name": "Video player",
+  "bar.fullscreen": "Fullscreen (f / F11)",
+  "bar.mute": "Mute (m)",
+  "bar.speed": "Speed",
+  "bar.volume": "Volume (↑/↓)",
+  "center.next": "Next file / chapter (>)",
+  "center.prev": "Previous file / chapter (<)",
+  "dialog.open.title": "Open media",
+  "drop.hint": "Drop to play",
+  "header.close": "Close (Ctrl+Q)",
+  "header.open": "Open media (Ctrl+O)",
+  "menu.fullscreen": "Fullscreen",
+  "menu.label": "Menu",
+  "menu.open": "Open media…",
+  "menu.quit": "Quit",
+  "toast.dndExtra": "Playing the first of {count} dropped files (no playlist yet)",
+  "toast.noGl": "Video surface failed to start: no GL render context (see log)",
+  "toast.openFailed": "Could not open {path}: {error}",
+  "toast.playbackFailed": "Playback failed: {error}"
+}

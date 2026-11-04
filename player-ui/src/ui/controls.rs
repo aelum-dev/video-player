@@ -150,7 +150,11 @@ impl Controls {
         self.duration_label
             .set_text(&format::clock(state.duration));
         self.title
-            .set_text(state.title().unwrap_or_else(|| "Video player".to_owned()).as_str());
+            .set_text(
+                state.title()
+                    .unwrap_or_else(|| crate::i18n::t("app.name"))
+                    .as_str(),
+            );
         self.volume_button
             .set_icon_name(volume_icon(state.volume, state.muted));
         self.speed_button.set_label(&format!("{:.2}×", state.speed));

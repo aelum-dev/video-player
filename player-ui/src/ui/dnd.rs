@@ -80,12 +80,10 @@ fn open_dropped(shared: &Shared, controls: &Controls, files: &[gtk::gio::File]) 
     tracing::info!(%source, count = files.len(), "dropped files");
     crate::open_source(shared, &source, true, 0.0);
     if files.len() > 1 {
+        let count = files.len().to_string();
         crate::toast(
             shared,
-            &format!(
-                "Playing the first of {} dropped files (no playlist yet)",
-                files.len()
-            ),
+            &crate::i18n::t_fmt("toast.dndExtra", &[("count", &count)]),
         );
     }
     // A DND drag delivers no motion events, so the idle timer may have hidden

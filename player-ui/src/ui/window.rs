@@ -13,6 +13,7 @@ use libadwaita::prelude::*;
 use player_core::PlaybackEngine;
 use player_video::VideoArea;
 
+use crate::i18n;
 use crate::Shared;
 
 use super::controls::{Controls, IDLE_TICK_MS};
@@ -48,11 +49,11 @@ fn build_header(window: &adw::ApplicationWindow) -> (gtk::Revealer, gtk::Label) 
     let open = flat_button(
         "document-open-symbolic",
         Some("app.open"),
-        "Open media (Ctrl+O)",
+        &i18n::t("header.open"),
     );
 
     let title = gtk::Label::builder()
-        .label("Video player")
+        .label(i18n::t("app.name"))
         .ellipsize(gtk::pango::EllipsizeMode::Middle)
         .max_width_chars(48)
         .xalign(0.5)
@@ -66,17 +67,17 @@ fn build_header(window: &adw::ApplicationWindow) -> (gtk::Revealer, gtk::Label) 
     title.set_halign(gtk::Align::Center);
 
     let menu_model = gtk::gio::Menu::new();
-    menu_model.append(Some("Open media…"), Some("app.open"));
-    menu_model.append(Some("Fullscreen"), Some("app.fullscreen"));
-    menu_model.append(Some("Quit"), Some("app.quit"));
+    menu_model.append(Some(&i18n::t("menu.open")), Some("app.open"));
+    menu_model.append(Some(&i18n::t("menu.fullscreen")), Some("app.fullscreen"));
+    menu_model.append(Some(&i18n::t("menu.quit")), Some("app.quit"));
     let menu = gtk::MenuButton::builder()
         .icon_name("open-menu-symbolic")
-        .tooltip_text("Menu")
+        .tooltip_text(i18n::t("menu.label"))
         .build();
     menu.add_css_class("flat");
     menu.set_menu_model(Some(&menu_model));
 
-    let close = flat_button("window-close-symbolic", None, "Close (Ctrl+Q)");
+    let close = flat_button("window-close-symbolic", None, &i18n::t("header.close"));
     let window_clone = window.clone();
     close.connect_clicked(move |_| window_clone.close());
 
@@ -152,7 +153,7 @@ fn build_playbar(shared: &Shared) -> (gtk::Revealer, PlayBar) {
 
     let volume_button = gtk::MenuButton::builder()
         .icon_name("audio-volume-high-symbolic")
-        .tooltip_text("Volume (↑/↓)")
+        .tooltip_text(i18n::t("bar.volume"))
         .build();
     volume_button.add_css_class("flat");
     let volume_scale = gtk::Scale::with_range(gtk::Orientation::Horizontal, 0.0, 100.0, 1.0);
@@ -168,7 +169,7 @@ fn build_playbar(shared: &Shared) -> (gtk::Revealer, PlayBar) {
     }
     let mute = gtk::ToggleButton::builder()
         .icon_name("audio-volume-muted-symbolic")
-        .tooltip_text("Mute (m)")
+        .tooltip_text(i18n::t("bar.mute"))
         .build();
     {
         let engine = shared.engine.clone();
@@ -183,7 +184,10 @@ fn build_playbar(shared: &Shared) -> (gtk::Revealer, PlayBar) {
     volume_box.append(&volume_scale);
     volume_button.set_popover(Some(&gtk::Popover::builder().child(&volume_box).build()));
 
-    let speed_button = gtk::MenuButton::builder().label("1.00×").tooltip_text("Speed").build();
+    let speed_button = gtk::MenuButton::builder()
+        .label("1.00×")
+        .tooltip_text(i18n::t("bar.speed"))
+        .build();
     speed_button.add_css_class("flat");
     let speed_scale = gtk::Scale::with_range(gtk::Orientation::Horizontal, 0.25, 4.0, 0.05);
     speed_scale.set_draw_value(false);
@@ -227,7 +231,7 @@ fn build_playbar(shared: &Shared) -> (gtk::Revealer, PlayBar) {
     let fullscreen_button = flat_button(
         "view-fullscreen-symbolic",
         Some("app.fullscreen"),
-        "Fullscreen (f / F11)",
+        &i18n::t("bar.fullscreen"),
     );
 
     bar.append(&time_label);
@@ -290,14 +294,14 @@ fn build_center() -> (gtk::Revealer, gtk::Button) {
     let prev_skip = flat_button(
         "media-skip-backward-symbolic",
         Some("app.skip-prev"),
-        "Previous file / chapter (<)",
+        &i18n::t("center.prev"),
     );
     prev_skip.add_css_class("center-skip");
     prev_skip.set_valign(gtk::Align::Center);
     let next_skip = flat_button(
         "media-skip-forward-symbolic",
         Some("app.skip-next"),
-        "Next file / chapter (>)",
+        &i18n::t("center.next"),
     );
     next_skip.add_css_class("center-skip");
     next_skip.set_valign(gtk::Align::Center);
@@ -335,7 +339,7 @@ fn click_pair(last: i64, now: i64, gap: i64) -> (i64, bool) {
 /// Build the window: video surface with the controls floating over it.
 pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::ApplicationWindow {
     let window = adw::ApplicationWindow::new(app);
-    window.set_title(Some("Video player"));
+    window.set_title(Some(i18n::t("app.name").as_str()));
     window.set_default_size(1000, 600);
     window.add_css_class("player-window");
 
@@ -379,7 +383,7 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
     // overlay child), hidden until a file drag enters the window. A window-
     // level CSS outline would not do: the GLArea paints over it.
     let drop_hint = gtk::Label::builder()
-        .label("Drop to play")
+        .label(i18n::t("drop.hint"))
         .xalign(0.5)
         .yalign(0.5)
         .build();
@@ -498,9 +502,7 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
         if !engine.inner().has_render()
             && let Some(overlay) = toasts_slot.borrow().as_ref()
         {
-            overlay.add_toast(adw::Toast::new(
-                "Video surface failed to start: no GL render context (see log)",
-            ));
+            overlay.add_toast(adw::Toast::new(&i18n::t("toast.noGl")));
         }
         glib::ControlFlow::Break
     });

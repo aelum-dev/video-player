@@ -698,6 +698,7 @@ dependencies = [
  "libc",
  "player-core",
  "player-video",
+ "serde_json",
  "tracing",
  "tracing-subscriber",
 ]

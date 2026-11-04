@@ -13,6 +13,7 @@
 //! threads).
 
 mod format;
+mod i18n;
 mod theme;
 mod ui;
 
@@ -75,6 +76,9 @@ fn main() -> gtk::glib::ExitCode {
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
         .init();
+
+    // Locale + catalogs, before any string is built.
+    i18n::init();
 
     let app = adw::Application::new(Some(APP_ID), gtk::gio::ApplicationFlags::HANDLES_OPEN);
 
@@ -164,7 +168,7 @@ fn setup_actions(app: &adw::Application, shared: &Shared) {
                 return;
             };
             let dialog = gtk::FileDialog::new();
-            dialog.set_title("Open media");
+            dialog.set_title(&i18n::t("dialog.open.title"));
             dialog.set_modal(true);
             dialog.open(
                 Some(&win),
@@ -344,7 +348,11 @@ pub(crate) fn open_source(shared: &Shared, path: &str, autoplay: bool, starts_at
     }
     if let Err(err) = shared.engine.open(path, autoplay) {
         tracing::error!(%err, path, "open failed");
-        toast(shared, &format!("Could not open {path}: {err}"));
+        let error = err.to_string();
+        toast(
+            shared,
+            &i18n::t_fmt("toast.openFailed", &[("path", path), ("error", &error)]),
+        );
         return;
     }
     // The seek is queued for the `Loaded` event (a seek needs a loaded file,
@@ -447,7 +455,10 @@ fn start_event_pump(shared: &Shared) {
                             }
                         }
                         PlayerEvent::Failed { message, .. } => {
-                            toast(&shared, &format!("Playback failed: {message}"));
+                            toast(
+                                &shared,
+                                &i18n::t_fmt("toast.playbackFailed", &[("error", message.as_str())]),
+                            );
                         }
                         _ => {}
                     }
