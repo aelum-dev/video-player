@@ -117,6 +117,19 @@ before trusting a version-specific claim.
 - `WidgetExt::activate_action(name, Some(&delta.to_variant()))` reaches the
   application's actions from any widget — the wheel reuses the accel-bound
   `app.volume-rel` action instead of duplicating its clamp.
+- The folded `PlaybackState::volume` lags the engine by up to one event-pump
+  tick (100 ms): a relative step computed from it alone collapses a fast
+  wheel burst into one step (every activation adds to the same stale value).
+  Steps go through `PlaybackState::request_volume` — the optimistic fold —
+  and mpv's `volume` events confirm them in order (a confirmation pops its
+  request and must not roll back a later one; an unrequested observed value
+  is mpv's truth and wins).
+- A `Scale`'s `value-changed` fires for programmatic writes too: `refresh`
+  syncing the volume slider re-entered the engine through it — and above 100
+  the sync value (clamped to the slider's range) is deliberately not the
+  state value, so it pulled the volume back down and `borrow_mut`-ed the
+  state `refresh` itself holds borrowed (panic). Block the handler around
+  sync writes (`ObjectExt::block_signal`).
 
 ### Theming additions
 - `CssProvider::load_from_*` **replaces** the provider's previous styles —

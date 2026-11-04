@@ -263,6 +263,12 @@ fn setup_actions(app: &adw::Application, shared: &Shared) {
             let target = (shared.state.borrow().volume + delta).clamp(0.0, MAX_VOLUME);
             if let Err(err) = shared.engine.set_volume(target) {
                 tracing::warn!(%err, "set_volume failed");
+            } else {
+                // Fold the step in at once: a fast wheel burst fires several
+                // steps between pump ticks, and each would add to the same
+                // stale observed volume — the "fast scroll is ignored" bug.
+                // mpv's `volume` events confirm them in order (state.rs).
+                shared.state.borrow_mut().request_volume(target);
             }
         }
     });

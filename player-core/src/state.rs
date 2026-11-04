@@ -1,5 +1,6 @@
 //! The player's view of playback state, updated from [`PlayerEvent`]s.
 
+use std::collections::VecDeque;
 use std::path::Path;
 
 use crate::engine::{PlayerEvent, PropertyValue};
@@ -19,6 +20,12 @@ pub struct PlaybackState {
     /// ending the file, so "play" has to mean start over, not resume at EOF.
     pub ended: bool,
     pub volume: f64,
+    /// Volumes the front-end asked the engine for but mpv has not
+    /// confirmed yet, oldest first. A fast wheel burst fires several
+    /// `volume-rel` steps between pump ticks; each next step builds on
+    /// the last request instead of on the stale observed value (the
+    /// "fast scroll is ignored" bug).
+    volume_requests: VecDeque<f64>,
     pub muted: bool,
     pub speed: f64,
 }
@@ -34,6 +41,7 @@ impl Default for PlaybackState {
             paused: true,
             ended: false,
             volume: 100.0,
+            volume_requests: VecDeque::new(),
             muted: false,
             speed: 1.0,
         }
@@ -85,7 +93,19 @@ impl PlaybackState {
                 ("eof-reached", PropertyValue::Flag(v)) if self.source.is_some() => {
                     self.ended = *v;
                 }
-                ("volume", PropertyValue::Double(v)) => self.volume = *v,
+                ("volume", PropertyValue::Double(v)) => {
+                    // The echo of our own request pops it and must not
+                    // write: a burst's later step must not roll back
+                    // behind it. A value we did not ask for (a config,
+                    // a script, another client, an engine clamp) is
+                    // mpv's truth, and pending requests are stale.
+                    if self.volume_requests.front() == Some(v) {
+                        self.volume_requests.pop_front();
+                    } else {
+                        self.volume_requests.clear();
+                        self.volume = *v;
+                    }
+                }
                 ("mute", PropertyValue::Flag(v)) => self.muted = *v,
                 ("speed", PropertyValue::Double(v)) => self.speed = *v,
                 _ => {}
@@ -102,6 +122,21 @@ impl PlaybackState {
     /// the right icon before mpv's `pause` event arrives.
     pub fn set_play_state(&mut self, paused: bool) {
         self.paused = paused;
+    }
+
+    /// Records a volume the front-end has just asked the engine for, so
+    /// the next step in a fast wheel burst builds on it and not on the
+    /// value mpv has not reported yet. The `volume` events confirm these
+    /// in order (see the fold); an unrequested value clears the queue
+    /// and wins. Same optimistic pattern as [`Self::set_play_state`].
+    pub fn request_volume(&mut self, volume: f64) {
+        // Only a real change is queued: mpv emits no event for a value
+        // it already has, and an entry nothing confirms would linger.
+        if volume == self.volume {
+            return;
+        }
+        self.volume_requests.push_back(volume);
+        self.volume = volume;
     }
 
     /// File name of the current source, for the window title.
@@ -244,6 +279,35 @@ mod tests {
             value: PropertyValue::Str(String::new()),
         });
         assert_eq!(state.source.as_deref(), Some("/d/b.mkv"));
+    }
+
+    #[test]
+    fn a_fast_volume_burst_accumulates_before_mpv_confirms_any_step() {
+        // The reported bug: several wheel steps inside one 100 ms pump
+        // interval each added to the same stale observed volume, so the
+        // burst collapsed into one step.
+        let mut state = PlaybackState::default();
+        state.request_volume(state.volume + 10.0);
+        state.request_volume(state.volume + 10.0);
+        assert_eq!(state.volume, 120.0);
+        // The confirmations come back later, in order, and change nothing.
+        state.apply(&number("volume", 110.0));
+        assert_eq!(state.volume, 120.0, "a confirmation must not roll back a later request");
+        state.apply(&number("volume", 120.0));
+        assert_eq!(state.volume, 120.0);
+    }
+
+    #[test]
+    fn an_unrequested_volume_still_belongs_to_mpv() {
+        // A config, a script, a second client, or an engine clamp: a value
+        // we never asked for is the truth, and pending requests are stale.
+        let mut state = PlaybackState::default();
+        state.request_volume(130.0);
+        state.apply(&number("volume", 100.0));
+        assert_eq!(state.volume, 100.0);
+        // Observation works normally again afterwards.
+        state.apply(&number("volume", 90.0));
+        assert_eq!(state.volume, 90.0);
     }
 
     #[test]

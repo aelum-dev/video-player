@@ -178,14 +178,21 @@ fn build_playbar(shared: &Shared) -> (gtk::Revealer, PlayBar) {
     let volume_scale = gtk::Scale::with_range(gtk::Orientation::Horizontal, 0.0, 100.0, 1.0);
     volume_scale.set_draw_value(false);
     volume_scale.set_size_request(140, -1);
-    {
+    let volume_scale_changed = {
         let engine = shared.engine.clone();
+        let state = shared.state.clone();
         volume_scale.connect_value_changed(move |scale| {
-            if let Err(err) = engine.set_volume(scale.value()) {
+            let value = scale.value();
+            if let Err(err) = engine.set_volume(value) {
                 tracing::warn!(%err, "set_volume failed");
+            } else {
+                // Same fold as the wheel step: a following relative step
+                // builds on the dragged value, not on the observed one
+                // still on its way back.
+                state.borrow_mut().request_volume(value);
             }
-        });
-    }
+        })
+    };
     let mute = gtk::ToggleButton::builder()
         .icon_name("audio-volume-muted-symbolic")
         .tooltip_text(i18n::t("bar.mute"))
@@ -268,6 +275,7 @@ fn build_playbar(shared: &Shared) -> (gtk::Revealer, PlayBar) {
             duration_label,
             volume_button,
             volume_scale,
+            volume_scale_changed,
             speed_button,
             speed_scale,
             fullscreen_button,
@@ -281,6 +289,9 @@ struct PlayBar {
     duration_label: gtk::Label,
     volume_button: gtk::MenuButton,
     volume_scale: gtk::Scale,
+    /// The slider's `value-changed` handler — blocked while `refresh`
+    /// syncs the slider, so a sync never re-enters the engine.
+    volume_scale_changed: gtk::glib::SignalHandlerId,
     speed_button: gtk::MenuButton,
     speed_scale: gtk::Scale,
     fullscreen_button: gtk::Button,
@@ -380,6 +391,7 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
         duration_label: bar.duration_label,
         volume_button: bar.volume_button,
         volume_scale: bar.volume_scale,
+        volume_scale_changed: Rc::new(bar.volume_scale_changed),
         speed_button: bar.speed_button,
         speed_scale: bar.speed_scale,
         fullscreen_button: bar.fullscreen_button,

@@ -29,6 +29,12 @@ pub struct Controls {
     pub(super) duration_label: gtk::Label,
     pub(super) volume_button: gtk::MenuButton,
     pub(super) volume_scale: gtk::Scale,
+    /// The slider's `value-changed` handler, blocked while `refresh`
+    /// syncs the slider — a sync is not an edit and must not re-enter
+    /// the engine (and the volume can pass 100 while the slider stops
+    /// there, so the sync value is deliberately not the state value).
+    /// `Rc`: `Controls` is `Clone`, `SignalHandlerId` is not.
+    pub(super) volume_scale_changed: Rc<gtk::glib::SignalHandlerId>,
     pub(super) speed_button: gtk::MenuButton,
     pub(super) speed_scale: gtk::Scale,
     pub(super) fullscreen_button: gtk::Button,
@@ -175,7 +181,13 @@ impl Controls {
         if !self.volume_button.is_active() {
             let volume = state.volume.clamp(0.0, 100.0);
             if (self.volume_scale.value() - volume).abs() > f64::EPSILON {
+                // Block the edit handler: this is a sync, not a user edit.
+                // Unblocked, it would re-enter the engine — and above 100
+                // the sync value (clamped to the slider's range) is not
+                // the state value, so it would pull the volume back down.
+                self.volume_scale.block_signal(&self.volume_scale_changed);
                 self.volume_scale.set_value(volume);
+                self.volume_scale.unblock_signal(&self.volume_scale_changed);
             }
         }
         if !self.speed_button.is_active() && (self.speed_scale.value() - state.speed).abs() > 0.001 {
