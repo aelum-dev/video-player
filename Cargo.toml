@@ -5,7 +5,8 @@ members = ["player-core", "player-video", "player-ui"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-license = "MIT"
+license = "GPL-3.0-only"
+repository = "https://github.com/aelum-dev/video-player"
 
 [workspace.dependencies]
 anyhow = "1"
