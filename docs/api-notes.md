@@ -94,6 +94,30 @@ before trusting a version-specific claim.
 - `WidgetExt::compute_bounds(&other)` returns a **graphene Rect** (f32), not a
   `gdk::Rectangle` — no `contains()`, compare bounds manually.
 
+### Scroll / volume-OSD additions (gtk4-rs 0.11 / GTK 4.24)
+- `EventControllerScrollFlags` has **no SMOOTH flag** (that was GTK3).
+  Without `DISCRETE` the controller receives wheel notches (dy = ±1 per
+  notch) *and* the touchpad's fractional stream — one notch accumulator
+  handles both.
+- libinput reads the **legacy `REL_WHEEL` axis as a raw notch count**: the
+  high-res convention (±120 per notch) belongs on `REL_WHEEL_HI_RES`. A
+  synthetic `-120` on the legacy axis arrives as 120 notches — the `uwheel`
+  probe did exactly that and a three-notch test jumped the volume to 0.
+- `LevelBar`'s `orientation` is **builder-only** in the bindings — no
+  setter, no getter: `LevelBar::builder().orientation(Vertical).build()`.
+  A vertical bar fills **top-down by default** (seen on screen);
+  `set_inverted(true)` grows it bottom-up. The libadwaita theme styles
+  `levelbar.vertical trough > block` and already fills non-empty blocks with
+  the accent color, so an app only styles the size and the trough.
+- A `LevelBar` (any orientation) defaults to halign **fill** — inside a box
+  it stretches to the container's content width, and CSS `min-width` is
+  only a floor, never a cap. Pin it with `set_halign(Center)` to make the
+  min-width the actual width (the "volume bar grows wider" bug: the bar
+  was tracking the percent label's width).
+- `WidgetExt::activate_action(name, Some(&delta.to_variant()))` reaches the
+  application's actions from any widget — the wheel reuses the accel-bound
+  `app.volume-rel` action instead of duplicating its clamp.
+
 ### Theming additions
 - `CssProvider::load_from_*` **replaces** the provider's previous styles —
   loading several sheets one after another leaves only the **last** sheet in

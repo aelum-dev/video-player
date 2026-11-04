@@ -276,3 +276,44 @@ label.drop-hint {
     font-size: 1.4em;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
+
+/* The volume OSD on the right edge: it rides on the picture, not on a bar,
+   so it carries its own small scrim and ink like the center buttons. The
+   bar is a LevelBar (an indicator — it never takes input); the theme's
+   own rules already fill blocks with the accent, which is the one palette
+   color that reads over video (same reasoning as the seek fill), so what
+   is set here is the size and the always-dark trough. */
+.volume-osd {
+    padding: 20px 8px;
+    border-radius: 999px;
+    background-color: alpha(black, 0.6);
+    color: #f6f6f6;
+}
+
+.volume-osd image {
+    -gtk-icon-size: 28px;
+}
+
+.volume-osd label {
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    /* No width reservation at all: the box has a fixed size set in code
+       (volume.rs), so the readout is fully detached from the layout —
+       digits of any length never move anything. */
+}
+
+levelbar.volume-osd-bar trough {
+    /* Size is set in code (volume.rs: BAR_WIDTH/BAR_HEIGHT, pinned with
+       halign center); this rule is colors and shape only. */
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.25);
+}
+
+levelbar.volume-osd-bar trough > block {
+    border-width: 0;
+    border-radius: 999px;
+}
+
+levelbar.volume-osd-bar trough > block.empty {
+    background-color: transparent;
+}

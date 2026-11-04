@@ -1,6 +1,6 @@
 //! Window assembly: the video surface with the controls floating over it,
 //! the header and playback bars, and the window-level gestures (move by
-//! header drag, double-click fullscreen).
+//! header drag, double-click fullscreen, volume by wheel).
 
 use std::cell::Cell;
 use std::rc::Rc;
@@ -18,7 +18,7 @@ use crate::Shared;
 
 use super::controls::{Controls, IDLE_TICK_MS};
 use super::now_ms;
-use super::{dnd, seek};
+use super::{dnd, seek, volume};
 
 /// Wrap a bar so it can fade in/out as an overlay child pinned to one edge.
 fn overlay_revealer(bar: &impl IsA<gtk::Widget>, valign: gtk::Align) -> gtk::Revealer {
@@ -366,6 +366,7 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
     let (header, title) = build_header(&window);
     let (playbar, bar) = build_playbar(shared);
     let (center, center_button) = build_center();
+    let volume_osd = volume::build();
     let seek_handle = seek::attach(&bar.seek, &shared.engine);
 
     let controls = Controls {
@@ -382,6 +383,7 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
         fullscreen_button: bar.fullscreen_button,
         center: center.clone(),
         center_button: center_button.clone(),
+        volume_osd: volume_osd.clone(),
         seeking: seek_handle.seeking,
         seek_settle: seek_handle.seek_settle,
         hover: Rc::new(Cell::new(false)),
@@ -397,6 +399,9 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
     overlay.add_overlay(&playbar);
     // Last: the center button sits above the bars if they ever overlap.
     overlay.add_overlay(&center);
+    // The volume OSD on the right edge: an indicator, not a control — it
+    // appears on any volume change and fades again (see `ui::volume`).
+    overlay.add_overlay(volume_osd.revealer());
 
     // Drop feedback: a dashed frame and a hint drawn *over* the video (topmost
     // overlay child), hidden until a file drag enters the window. A window-
@@ -506,6 +511,11 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
     video.add_controller(dbl);
 
     dnd::attach(&window, &drop_hint, &controls, shared);
+
+    // Wheel anywhere in the window steps the volume through `app.volume-rel`,
+    // the same action the Up/Down keys use. The bars' own sliders claim
+    // their scroll sequences first, so this never steals them (see `ui::volume`).
+    volume::attach_scroll(&window);
 
     // Keep the fullscreen button's icon honest.
     window.connect_fullscreened_notify({

@@ -14,10 +14,12 @@
 //!   idle-hide state machine
 //! * [`seek`]     — the seek slider's ownership + commit machine
 //! * [`dnd`]      — the drop target and its hint
+//! * [`volume`]   — wheel → volume steps, and the left-edge volume OSD
 
 mod controls;
 mod dnd;
 mod seek;
+mod volume;
 mod window;
 
 pub use controls::Controls;

@@ -32,8 +32,14 @@ use player_core::{MpvEngine, PlaybackEngine, PlaybackState, PlayerEvent};
 const APP_ID: &str = "aelum.videoplayer.Player";
 /// Seconds jumped by the Left/Right keys (mpv's default).
 const SEEK_STEP_SECS: i64 = 5;
-/// Volume percentage stepped by the Up/Down keys.
-const VOLUME_STEP: i64 = 5;
+/// Volume percentage stepped by the Up/Down keys (the wheel has its own,
+/// coarser step — `WHEEL_VOLUME_STEP` in `ui::volume`).
+/// `i32` because that is the parameter type the action accepts (api-notes:
+/// GTK's accel parser produces int32).
+pub(crate) const VOLUME_STEP: i32 = 5;
+/// The ceiling both the volume action and the volume OSD share: mpv allows
+/// more, we do not step past this.
+pub(crate) const MAX_VOLUME: f64 = 130.0;
 /// How often the last-played record is refreshed while playing. A few
 /// hundred bytes every five seconds, and the difference between resuming
 /// where the user left off and resuming five seconds earlier when the
@@ -254,7 +260,7 @@ fn setup_actions(app: &adw::Application, shared: &Shared) {
         let shared = shared.clone();
         move |_, parameter| {
             let delta = parameter.and_then(|p| p.get::<i32>()).unwrap_or(0) as f64;
-            let target = (shared.state.borrow().volume + delta).clamp(0.0, 130.0);
+            let target = (shared.state.borrow().volume + delta).clamp(0.0, MAX_VOLUME);
             if let Err(err) = shared.engine.set_volume(target) {
                 tracing::warn!(%err, "set_volume failed");
             }

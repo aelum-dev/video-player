@@ -10,6 +10,7 @@ use player_core::{Chapter, PlaybackState};
 use crate::format;
 
 use super::now_ms;
+use super::volume::VolumeOsd;
 
 /// Hide the controls this long after the last pointer motion. mpv's default is
 /// ~1 s; a little more so reaching for a button does not hide them.
@@ -36,6 +37,9 @@ pub struct Controls {
     /// revealed whenever the controls are.
     pub(super) center: gtk::Revealer,
     pub(super) center_button: gtk::Button,
+    /// Right-edge volume OSD: shown from `refresh` whenever the folded
+    /// volume changes, whatever moved it (wheel, keys, the popover slider).
+    pub(super) volume_osd: VolumeOsd,
     /// True while the user owns the seek slider (drag or arrows): the pump must
     /// not fight them for it.
     pub(super) seeking: Rc<Cell<bool>>,
@@ -157,6 +161,9 @@ impl Controls {
             );
         self.volume_button
             .set_icon_name(volume_icon(state.volume, state.muted));
+        // The left-edge OSD flashes on any change of the pair — including
+        // mute alone, so pressing `m` gets the same feedback as scrolling.
+        self.volume_osd.sync(state.volume, state.muted);
         self.speed_button.set_label(&format!("{:.2}×", state.speed));
 
         if !self.seeking.get() && now_ms() >= self.seek_settle.get() {
@@ -177,7 +184,9 @@ impl Controls {
     }
 }
 
-fn volume_icon(volume: f64, muted: bool) -> &'static str {
+/// Shared with the volume OSD (`ui::volume`): the icon the playbar button
+/// and the indicator show is the same one, by the same thresholds.
+pub(super) fn volume_icon(volume: f64, muted: bool) -> &'static str {
     if muted || volume <= 0.0 {
         "audio-volume-muted-symbolic"
     } else if volume < 34.0 {
