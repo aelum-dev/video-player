@@ -118,6 +118,15 @@ before trusting a version-specific claim.
   the matching target checked. `connect_change_state` must call `set_state`.
 - `gtk::style_context_add_provider_for_display` (free function) replaces the
   deprecated `StyleContext::add_provider_for_display`.
+- `GtkMenuButton`'s CSS node tree is `menubutton ▸ button`: `add_css_class`
+  lands on the **`menubutton` wrapper**, while the visible background/fill is
+  drawn by the inner `button` node, which carries none of the widget's
+  classes. Rules scoped as `.flat button` or `.bar > button` never hit a
+  menu button; the matching leg is `menubutton.flat button`. (And the
+  popover's own node hangs under that inner `button`, so bar-scoped
+  descendant rules reach into popovers too — counter-rules on
+  `popover button` restore chrome. Settled with red-border probes on both
+  node kinds.)
 
 ## Key facts learned about the mpv render API
 - **`mpv_render_context_render()` leaves the FBO binding at 0.** Any readback must

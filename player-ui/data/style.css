@@ -84,17 +84,53 @@ window.background.player-window {
     -gtk-icon-size: 24px;
 }
 
+/* Hover/press/checked fills are drawn as the button node's background, and
+   the corner radius shapes that box: a full pill at every size (999px
+   clamps to half the height, like the seek sliders). The second selector
+   leg is what reaches the volume/speed/"..." controls: a MenuButton keeps
+   its CSS classes (the .flat included) on its outer `menubutton` node,
+   and the drawn fill belongs to an inner `button` node that has none of
+   them — which is also why scoping by a child of `.floating-bar` misses
+   them: their button is not a child of the bar, it is a child of the
+   wrapper. (Settled with red-border probes; the fact is in api-notes.)
+   Descendant legs therefore reach popover contents too; the exclusion
+   rules at the end of this block put those back to normal chrome. */
+.floating-bar button.flat,
+.floating-bar menubutton.flat button {
+    border-radius: 999px;
+}
+
 /* Press, not hover, is the moment that earns the filled box: a control
    lighting up under the pointer alone reads as "already chosen" over the
    video (the old inverted look), so hover stays a faint wash and the
    click gets the strong one. The :active rule must come after :hover —
    both match while a press is held (same specificity, later wins). */
-.floating-bar button:hover {
+.floating-bar button.flat:hover,
+.floating-bar menubutton.flat button:hover {
     background: rgba(255, 255, 255, 0.06);
 }
 
-.floating-bar button:active {
+.floating-bar button.flat:active,
+.floating-bar menubutton.flat button:active {
     background: rgba(255, 255, 255, 0.15);
+}
+
+/* The menu buttons (volume/speed/menu) stay :checked for as long as their
+   popover is open. Left to the theme that shows only a lighter outline-ish
+   wash, which reads as the press box "fading" the moment the mouse is
+   released — so keep the exact press fill while the popover is up. Only
+   nodes carrying the two legs above match, and neither the mute toggle
+   nor the speed "Normal" (never :checked) is among them. */
+.floating-bar button.flat:checked,
+.floating-bar menubutton.flat button:checked {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* Popover contents stay normal chrome: re-round the controls inside the
+   popovers (the descendant legs above pill-shaped them by accident;
+   6px is libadwaita's own button radius). */
+.floating-bar popover button {
+    border-radius: 6px;
 }
 
 .floating-bar button label {
