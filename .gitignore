@@ -1,5 +1,13 @@
 /target/
 
+# Arch packaging output (scripts/build-pkg.sh)
+/dist/
+/packaging/src/
+/packaging/pkg/
+/packaging/*.pkg.tar.*
+/packaging/*.pkg.tar.*.asc
+/packaging/*.tar.gz
+
 # Personal work journal — deliberately not tracked (purged from history
 # 2026-11-03). It stays on disk, is kept up to date, and never gets
 # committed; durable API facts live in docs/api-notes.md instead.

@@ -1,0 +1,48 @@
+# aelum-video-player — Arch package for the player.
+#
+# Built by scripts/build-pkg.sh, which generates the source tarball from
+# `git ls-files`, runs makepkg here, then signs + checksums the result into
+# dist/. The package is deliberately NOT wired into the distro repos yet —
+# test-install it on a host first:
+#   sudo pacman -U dist/aelum-video-player-<ver>-1-x86_64.pkg.tar.zst
+
+pkgname=aelum-video-player
+# Keep in sync with [workspace.package].version in the root Cargo.toml —
+# scripts/build-pkg.sh fails the build when the two drift apart.
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='GTK4/libadwaita media player over libmpv'
+arch=('x86_64')
+license=('MIT')
+# gtk4/libadwaita/mpv are linked by the binary; libglvnd is only dlopen'd at
+# runtime (player-video's gllink.rs loads libGL/libEGL by hand), so no
+# NEEDED entry names it and it must be declared.
+depends=('gtk4' 'libadwaita' 'mpv' 'libglvnd')
+makedepends=('rust' 'pkgconf')
+# Regenerated from the tracked tree on every build-pkg.sh run, so the hash
+# changes by design.
+source=("$pkgname-$pkgver.tar.gz")
+sha256sums=('SKIP')
+# One artifact: a debug subpackage of a release-profile binary has no user.
+options=('!debug')
+
+build() {
+    cd "$pkgname-$pkgver"
+    cargo build --release --locked
+}
+
+package() {
+    # build() ran in the source directory; package() starts at $srcdir again.
+    cd "$pkgname-$pkgver"
+    install -Dm755 target/release/video-player "$pkgdir/usr/bin/video-player"
+    # Desktop integration. The desktop/icon/metainfo names must equal the
+    # GApplication app ID: GTK4 resolves the window icon by app ID through
+    # the icon theme, and the software center matches appdata by it too.
+    # No code change is needed for the window/launcher icon to appear.
+    install -Dm644 player-ui/data/aelum.videoplayer.Player.desktop \
+        "$pkgdir/usr/share/applications/aelum.videoplayer.Player.desktop"
+    install -Dm644 player-ui/data/aelum.videoplayer.Player.svg \
+        "$pkgdir/usr/share/icons/hicolor/scalable/apps/aelum.videoplayer.Player.svg"
+    install -Dm644 player-ui/data/aelum.videoplayer.Player.metainfo.xml \
+        "$pkgdir/usr/share/metainfo/aelum.videoplayer.Player.metainfo.xml"
+}

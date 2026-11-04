@@ -1,0 +1,20 @@
+[Desktop Entry]
+Type=Application
+Name=Video player
+GenericName=Media player
+Comment=Play videos and audio
+# Name/Comment translations follow the app's catalog (data/translations):
+# add Name[de-DE]=… etc. when those locales land.
+Exec=video-player %U
+TryExec=video-player
+Icon=aelum.videoplayer.Player
+Terminal=false
+Categories=AudioVideo;Player;GTK;
+Keywords=video;player;media;mpv;
+# Concrete types only: the spec rejects `video:*` wildcards (the validator
+# warns today, fatal later). This is mpv's practical set, not its full list.
+MimeType=video/mp4;video/x-matroska;video/webm;video/x-msvideo;video/quicktime;audio/mpeg;audio/flac;audio/ogg;audio/x-m4a;
+# The WM class IS the app ID under GTK4/Wayland; StartupWMClass keeps the
+# launcher's startup notification matched to the window.
+StartupNotify=true
+StartupWMClass=aelum.videoplayer.Player

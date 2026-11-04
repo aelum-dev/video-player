@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream metadata: what the software center shows. Keep the id and the
+     desktop-file name equal to the GApplication app ID. -->
+<component type="desktop-application">
+  <id>aelum.videoplayer.Player</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Video player</name>
+  <summary>Modular media player for the Aelum desktop</summary>
+  <description>
+    <p>Plays video and audio through libmpv behind a minimal interface:
+    the controls float over the video and fade when the pointer goes idle,
+    files can be dropped on the window, and the player reopens where you
+    left off.</p>
+  </description>
+  <categories>
+    <category>AudioVideo</category>
+  </categories>
+  <launchable type="desktop-id">aelum.videoplayer.Player.desktop</launchable>
+  <provides>
+    <binary>video-player</binary>
+  </provides>
+  <releases>
+    <release version="0.1.0" date="2026-11-04"/>
+  </releases>
+</component>

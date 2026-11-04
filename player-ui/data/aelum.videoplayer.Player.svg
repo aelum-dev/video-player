@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Aelum brand palette (website base.css): dark #1d1b20, accent #834c74, lilac #cfbdfe.
+       The play mark is the md-play glyph (U+F040A) extracted from the same
+       SymbolsNerdFont the website's icon set is built from (scripts/icons.py). -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b272e"/>
+      <stop offset="1" stop-color="#1d1b20"/>
+    </linearGradient>
+    <linearGradient id="play" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#cfbdfe"/>
+      <stop offset="1" stop-color="#834c74"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#bg)"/>
+  <rect x="8.5" y="8.5" width="111" height="111" rx="25.5" fill="none" stroke="#cfbdfe" stroke-opacity="0.18"/>
+  <!-- md-play outline, centered on the canvas. -->
+  <path d="M40.44 30V90L87.56 60Z" fill="url(#play)"/>
+  <!-- Seek line at the bottom, like the playbar over the video. -->
+  <rect x="28" y="100" width="72" height="4" rx="2" fill="#ffffff" fill-opacity="0.18"/>
+  <rect x="28" y="100" width="44" height="4" rx="2" fill="#834c74"/>
+  <circle cx="72" cy="102" r="4.5" fill="#cfbdfe"/>
+</svg>

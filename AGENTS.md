@@ -28,7 +28,10 @@ A modular media player: GTK4 + libadwaita UI, libmpv playback through the
   symbol loader (pure FFI).
 - `player-ui/` — the only crate that knows libadwaita: `main.rs`
   (lifecycle, actions, event pump), `ui/` (`window`, `controls`, `seek`,
-  `dnd`), `theme.rs`, `data/style.css`.
+  `dnd`), `theme.rs`, `i18n.rs` (locale selection + embedded catalogs —
+  same key/fallback contract as the installer frontend), `data/`
+  (`style.css`, `translations/`, and the app-identity files: desktop
+  entry, icon SVG, metainfo — all named by the app ID).
 
 Front-ends and the sink consume `player-core` through its traits and events
 only — UI code never calls mpv directly.
@@ -41,6 +44,7 @@ cargo test --workspace                     # incl. headless mpv smoke + sw-rende
 cargo clippy --workspace --all-targets     # must stay at 0 warnings
 pkill -x video-player                      # GApplication is single-instance: kill leftovers first
 cargo run -p player-ui -- some-video.mkv   # GUI
+./scripts/build-pkg.sh                     # Arch .pkg.tar.zst + sha256 + GPG .asc → dist/
 ```
 
 More (display-path checks, D-Bus driving of a running instance, Docker):
