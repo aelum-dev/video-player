@@ -152,7 +152,7 @@ before trusting a version-specific claim.
   within 200 ms it logs "not being called or stuck" and drops it. Not seen now.
 - `EngineBuilder::property` = `mpv_set_property` before init: works for options that
   are also properties, fails with `-8 MPV_ERROR_PROPERTY_NOT_FOUND` for pure options
-  (`sw`, `dither-depth`, `target-prim`, `background`). Needs an
+  (`sw`, `dither-depth`, `target-prim`, `background`, `chapter-file`). Needs an
   `mpv_set_option_string` seam for those.
 - **`keep-open=always` means there is no `end-file` at EOF.** The file stays
   loaded: mpv sets `pause=yes` and the `eof-reached` property, and `end-file`
@@ -160,6 +160,42 @@ before trusting a version-specific claim.
   quits. So "this title is over" must be observed as `observe("eof-reached",
   Flag)` — an `EndReason::Eof` arm never runs in this configuration (that cost a
   round of "Play at the end does nothing" debugging).
+- **`keep-open=yes`** (the app's setting since directory playlists) advances to
+  the next playlist entry at EOF — `end-file (EndOfFile)` + `file-loaded`
+  arrive as at any replace-load — and only at the END of the playlist holds the
+  last frame the way `always` does. `eof-reached` remains the end signal there.
+
+## Key facts learned about mpv playlists & directory autoload (mpv 0.41)
+- `autocreate-playlist=<no|filter|same>` (mpv 0.39+, the native successor of
+  `autoload.lua`) builds a playlist from the opened file's directory, placing
+  the opened file at its sorted position; `same` keeps only the category of
+  the opened file (`--video-exts` etc.). It IS runtime-settable via
+  `set_property` (verified 0.41), so it belongs in `reassert_app_options`,
+  after the user's mpv.conf has had its say.
+- `directory-mode=ignore` keeps that playlist flat. The default (`auto` →
+  `lazy`) contributes subdirectory entries too when a single file is opened.
+- The step commands are `playlist-next` / `playlist-prev` — the name is NOT
+  "playlist-previous" (an unknown command whose error is easy to misread as a
+  playlist problem).
+- Their default flag is `weak`: at the first/last entry the command **returns
+  an error** (`-12 INVALID_PARAMETER`) and changes nothing; playback is not
+  stopped (that is what `force` does). Callers log-and-ignore, so the controls
+  never need disabling or position pre-checks.
+- The `path` property (`Str`, observable) is the authoritative "what is
+  loaded now": it follows playlist steps the front-end did not initiate. Its
+  change event lands AFTER `file-loaded` (probed on 0.41) — anything that
+  names the new file (window title, logs) must read the fold after the
+  whole event batch, not at the `Loaded` event. When idle `path` goes
+  unavailable — mpv-engine drops unavailable payloads, so no event arrives
+  and the folded source never vanishes on its own; the empty-string guard
+  in `state.rs` is defensive.
+- At a playlist end, `weak` steps and `add chapter` on a chapterless file
+  both return the SAME error (`-12 INVALID_PARAMETER`) — you cannot tell
+  which leg ran from the error code alone.
+- `chapter-file` is a pure option (set_property → `-8 PROPERTY_NOT_FOUND`)
+  and `chapter-list` cannot be SET from a string (`-9 UNSUPPORTED_FORMAT`,
+  it wants a native node) — so a chaptered fixture cannot be conjured
+  through the current crate; it joins the `mpv_set_option_string` seam list.
 
 ## Key facts learned about GL/EGL FFI
 - `glGetString(GL_EXTENSIONS)` returns **NULL** in a 4.6 core context — use

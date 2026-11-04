@@ -65,6 +65,15 @@ pub trait PlaybackEngine: Send + Sync {
     fn chapter_step(&self, delta: i32) -> Result<()>;
     /// Chapter markers of the current title; empty when there are none.
     fn chapters(&self) -> Vec<Chapter>;
+    /// Jump `delta` playlist entries (-1 previous file, +1 next file).
+    ///
+    /// The playlist is populated by mpv's directory autoload (see
+    /// [`reassert_app_options`]). At its ends the step errors and changes
+    /// nothing — log it and move on.
+    fn playlist_step(&self, delta: i32) -> Result<()>;
+    /// The skip controls: walk the playlist when there is one to walk,
+    /// otherwise step chapters (see [`skip_target`]).
+    fn skip_step(&self, delta: i32) -> Result<()>;
     fn stop(&self) -> Result<()>;
     fn position(&self) -> Option<f64>;
     fn duration(&self) -> Option<f64>;
@@ -73,6 +82,27 @@ pub trait PlaybackEngine: Send + Sync {
     fn observe(&self, name: &str, format: PropertyFormat) -> Result<()>;
     /// Drain pending events (pull-based; call from the shell's loop).
     fn pump_events(&self) -> Vec<PlayerEvent>;
+}
+
+/// What the skip controls (`<` / `>`, the playbar's skip buttons) act on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SkipTarget {
+    Playlist,
+    Chapters,
+}
+
+/// The decision, pure so it is testable without mpv.
+///
+/// Decided per press from the playlist itself, not from the config: the
+/// honest question is "is there a playlist to walk". With directory autoload
+/// off — or a file alone in its directory — there is one entry and nothing
+/// to walk, so the buttons keep working on chapters instead of going dead.
+pub fn skip_target(playlist_count: i64) -> SkipTarget {
+    if playlist_count >= 2 {
+        SkipTarget::Playlist
+    } else {
+        SkipTarget::Chapters
+    }
 }
 
 /// Enable reading the user's mpv configuration — `~/.config/mpv/mpv.conf`
@@ -87,19 +117,41 @@ pub trait PlaybackEngine: Send + Sync {
 /// `vo=gpu-next` beats a pre-init `vo=libmpv`. So the options the app
 /// itself depends on are re-asserted after `build()`; see
 /// [`reassert_app_options`].
+///
+/// The opposite side of that rule is used here on purpose: the directory
+/// playlist options are set pre-init as *defaults*, so a line in the
+/// user's `mpv.conf` wins — `autocreate-playlist=no` turns the feature
+/// off, `directory-mode=…` picks the scan mode. They are user
+/// preferences, not app dependencies: with the playlist left empty the
+/// file's `<`/`>` steps just no-op (mpv's `weak` flag).
+///
+/// `autocreate-playlist=same` is mpv's native autoload (0.39+, the
+/// successor of `autoload.lua`): opening one local file builds a playlist
+/// from its directory, restricted to files of the same category as the one
+/// opened — a video opens only videos. `directory-mode=ignore` keeps that
+/// playlist flat: subdirectories contribute no entries.
 fn user_config(builder: mpv_engine::EngineBuilder) -> mpv_engine::EngineBuilder {
-    builder.property("config", "yes")
+    builder
+        .property("config", "yes")
+        .property("autocreate-playlist", "same")
+        .property("directory-mode", "ignore")
 }
 
 /// Re-assert the options the app depends on, after the config file has
 /// had its say (see [`user_config`] for why pre-init setting is not
-/// enough). Setting `vo` at runtime is safe before any load — the VO is
-/// only built at loadfile time, so the config's `vo` never opens a
-/// window. Everything else the user wrote — hwdec, scaling, subtitles,
-/// alang, … — stays exactly as written.
+/// enough *for those*). Setting `vo` at runtime is safe before any load —
+/// the VO is only built at loadfile time, so the config's `vo` never opens
+/// a window. Everything else the user wrote — hwdec, scaling, subtitles,
+/// alang, the directory-playlist defaults, … — stays exactly as written.
+///
+/// `keep-open=yes`: at EOF a title advances to the next playlist entry and
+/// only holds the last frame at the end of the playlist (`always` would
+/// not advance at all, which is what the player did before directory
+/// playlists existed). The end-of-file fold and restart-on-play are built
+/// on holding that frame, so this one is an app dependency, not a default.
 fn reassert_app_options(engine: &mpv_engine::Engine, vo: &str) -> Result<()> {
     engine.set_property("vo", vo)?;
-    engine.set_property("keep-open", "always")?;
+    engine.set_property("keep-open", "yes")?;
     Ok(())
 }
 
@@ -117,9 +169,14 @@ impl MpvEngine {
         this.inner.observe("time-pos", PropertyFormat::Double)?;
         this.inner.observe("duration", PropertyFormat::Double)?;
         this.inner.observe("pause", PropertyFormat::Flag)?;
-        // `keep-open=always` holds the last frame instead of ending the file,
-        // so this — not `end-file` — is what says the title is over.
+        // At the end of the playlist `keep-open=yes` holds the last frame
+        // instead of ending the file, so this — not `end-file` — is what
+        // says the title is over there.
         this.inner.observe("eof-reached", PropertyFormat::Flag)?;
+        // The file mpv actually has loaded. Unlike the path `open` was given,
+        // this follows playlist steps (`playlist_step`), so the front-end's
+        // title and last-played record track the file on screen.
+        this.inner.observe("path", PropertyFormat::Str)?;
         this.inner.observe("volume", PropertyFormat::Double)?;
         this.inner.observe("mute", PropertyFormat::Flag)?;
         this.inner.observe("speed", PropertyFormat::Double)?;
@@ -228,6 +285,28 @@ impl PlaybackEngine for MpvEngine {
             .unwrap_or_default()
     }
 
+    fn playlist_step(&self, delta: i32) -> Result<()> {
+        // mpv's playlist-prev / playlist-next (the command is NOT named
+        // "playlist-previous"). The default `weak` flag: at the first/last
+        // entry the command reports an error and changes nothing — playback
+        // is NOT stopped, which is what `force` would do. Callers may log
+        // the error and ignore it; the front-end never has to pre-check the
+        // position.
+        let cmd = if delta < 0 { "playlist-prev" } else { "playlist-next" };
+        self.inner.command(cmd, &[])?;
+        Ok(())
+    }
+
+    fn skip_step(&self, delta: i32) -> Result<()> {
+        let count = self.inner.get_property::<i64>("playlist-count").unwrap_or(0);
+        match skip_target(count) {
+            SkipTarget::Playlist => self.playlist_step(delta),
+            // The usual case for the chapter leg: no chapters either, so
+            // mpv answers with an error the front-end logs and ignores.
+            SkipTarget::Chapters => self.chapter_step(delta),
+        }
+    }
+
     fn set_volume(&self, percent: f64) -> Result<()> {
         self.inner.set_volume(percent)?;
         Ok(())
@@ -301,7 +380,17 @@ pub fn parse_chapters(json: &str) -> Vec<Chapter> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_chapters;
+    use super::{parse_chapters, skip_target, SkipTarget};
+
+    #[test]
+    fn skip_walks_the_playlist_only_when_there_is_one() {
+        // Nothing or a single entry: nothing to walk — chapters take over.
+        assert_eq!(skip_target(0), SkipTarget::Chapters);
+        assert_eq!(skip_target(1), SkipTarget::Chapters);
+        // Two or more: the skip controls are file controls.
+        assert_eq!(skip_target(2), SkipTarget::Playlist);
+        assert_eq!(skip_target(100), SkipTarget::Playlist);
+    }
 
     #[test]
     fn chapter_json_parses_titles_and_times() {

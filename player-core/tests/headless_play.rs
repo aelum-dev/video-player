@@ -112,3 +112,120 @@ fn a_title_opened_without_autoplay_waits_paused_on_its_first_frame() {
     }
     assert!(position.is_some(), "play did not start the title");
 }
+
+/// The directory-playlist feature end to end: opening one file makes mpv
+/// build a playlist of the same-type files in its directory
+/// (`autocreate-playlist=same`), and `skip_step` walks it — what the
+/// playbar's skip buttons and the < / > keys do. The observed `path`
+/// property is what tells the front-end which file is now on screen.
+#[test]
+fn one_file_opens_a_directory_playlist_that_steps_forward_and_back() {
+    let dir = std::env::temp_dir().join("player-core-playlist");
+    std::fs::create_dir_all(&dir).unwrap();
+    for name in ["a.wav", "b.wav", "c.wav"] {
+        write_silent_wav(&dir.join(name));
+    }
+
+    let engine = MpvEngine::silent().expect("engine init");
+    // `silent()` deliberately skips the app's option re-assertions, so name
+    // the two options the feature needs (the ones `reassert_app_options` sets).
+    engine
+        .inner()
+        .set_property("autocreate-playlist", "same")
+        .expect("autocreate option");
+    engine
+        .inner()
+        .set_property("directory-mode", "ignore")
+        .expect("directory-mode option");
+
+    // Opened paused: no title reaches EOF while the test walks the playlist,
+    // and mpv keeps `pause` across steps, so nothing races the assertions.
+    engine
+        .open(dir.join("b.wav").to_str().unwrap(), false)
+        .expect("open");
+
+    // The load reports itself as a `path` change…
+    let wait_path = |want: &str| {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while Instant::now() < deadline {
+            for event in engine.pump_events() {
+                if let PlayerEvent::Property { name, value: PropertyValue::Str(v) } = event
+                    && name == "path"
+                    && v.ends_with(want)
+                {
+                    return true;
+                }
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        false
+    };
+    assert!(wait_path("b.wav"), "the opened file never reported its path");
+
+    // …and the directory scan lands the other two files beside it.
+    let count = || engine.inner().get_property::<i64>("playlist-count").unwrap_or(0);
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while Instant::now() < deadline && count() < 3 {
+        engine.pump_events();
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    assert_eq!(count(), 3, "opening one file never populated the directory");
+
+    engine.skip_step(1).expect("next");
+    assert!(wait_path("c.wav"), "next did not land on c.wav");
+    engine.skip_step(-1).expect("prev");
+    assert!(wait_path("b.wav"), "prev did not land back on b.wav");
+
+    // Stepping past the first entry stays on it: mpv's default `weak` flag
+    // answers the command with an error and changes nothing (the front-end
+    // logs and ignores it), so the controls never need disabling.
+    engine.skip_step(-1).expect("prev");
+    let _ = engine.skip_step(-1);
+    assert_eq!(
+        engine.inner().get_property::<i64>("playlist-pos").unwrap_or(-1),
+        0,
+        "a step past the first entry must stay on it"
+    );
+}
+
+/// The directory-playlist options are app *defaults*, not overrides: set
+/// pre-init, an explicit line in the user's mpv.conf wins (the config is
+/// applied during `mpv_initialize`, after pre-init properties). Pinned so
+/// nobody "re-asserts" the user's choice away again.
+#[test]
+fn user_config_can_disable_the_directory_playlist() {
+    let conf = std::env::temp_dir().join("player-core-confprio");
+    std::fs::create_dir_all(&conf).unwrap();
+    std::fs::write(conf.join("mpv.conf"), "autocreate-playlist=no\n").expect("write mpv.conf");
+
+    let engine = mpv_engine::Engine::headless()
+        .property("config", "yes")
+        .property("config-dir", conf.to_str().unwrap())
+        .property("autocreate-playlist", "same") // the app default, as user_config sets
+        .property("directory-mode", "ignore")
+        .property("ao", "null")
+        .build()
+        .expect("engine init");
+    assert_eq!(
+        engine.get_property::<String>("autocreate-playlist").ok().as_deref(),
+        Some("no"),
+        "the user's mpv.conf must beat the app's pre-init default"
+    );
+
+    // With no config file in the directory, the app default stands.
+    let empty = std::env::temp_dir().join("player-core-confprio-empty");
+    std::fs::create_dir_all(&empty).unwrap();
+    let engine = mpv_engine::Engine::headless()
+        .property("config", "yes")
+        .property("config-dir", empty.to_str().unwrap())
+        .property("autocreate-playlist", "same")
+        .property("directory-mode", "ignore")
+        .property("ao", "null")
+        .build()
+        .expect("engine init");
+    assert_eq!(
+        engine.get_property::<String>("autocreate-playlist").ok().as_deref(),
+        Some("same"),
+        "without a user override the default must stand"
+    );
+}

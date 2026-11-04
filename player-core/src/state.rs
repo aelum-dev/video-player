@@ -14,9 +14,9 @@ pub struct PlaybackState {
     pub position: f64,
     pub duration: f64,
     pub paused: bool,
-    /// The current title ran to its end — mpv's `eof-reached`. With
-    /// `keep-open=always` the player holds the last frame instead of ending
-    /// the file, so "play" has to mean start over, not resume at EOF.
+    /// The current title ran to its end — mpv's `eof-reached`. At the end
+    /// of the playlist `keep-open=yes` holds the last frame instead of
+    /// ending the file, so "play" has to mean start over, not resume at EOF.
     pub ended: bool,
     pub volume: f64,
     pub muted: bool,
@@ -52,9 +52,11 @@ impl PlaybackState {
                 self.ended = false;
                 self.position = 0.0;
             }
-            // With keep-open=always a title never ends by itself — `eof-reached`
-            // (folded below) is what marks it over. An `end-file` here is a
-            // replace-load or a quit, and the next `Loaded` resets what matters.
+            // Advancing to the next playlist entry (or a replace-load / a
+            // quit) arrives as `end-file`; the next `Loaded` resets what
+            // matters, so there is nothing to fold here. A title at the end
+            // of the playlist never ends by itself — `eof-reached` (folded
+            // below) is what marks it over.
             PlayerEvent::Ended { .. } => {}
             PlayerEvent::Failed { .. } => {
                 self.ended = false;
@@ -65,6 +67,14 @@ impl PlaybackState {
             // (mpv's own `eof-reached` says so too, a moment later.)
             PlayerEvent::Restart => self.ended = false,
             PlayerEvent::Property { name, value } => match (name.as_str(), value) {
+                // The file mpv actually has loaded — mpv is the authority.
+                // A playlist step was not initiated by the front-end, so
+                // `set_source` never heard about it; this keeps the title
+                // and the last-played record on the file that is on screen.
+                // An empty path (an idle core) says nothing and is ignored.
+                ("path", PropertyValue::Str(v)) if !v.is_empty() => {
+                    self.source = Some(v.clone());
+                }
                 ("time-pos", PropertyValue::Double(v)) => self.position = *v,
                 ("duration", PropertyValue::Double(v)) => self.duration = *v,
                 // Only for a loaded title. An idle core reports `pause=false`
@@ -114,9 +124,9 @@ impl PlaybackState {
         if at_end { 0.0 } else { position }
     }
 
-    /// True when "play" means start over: with `keep-open=always` an ended
-    /// title sits paused on its last frame, and resuming there would end
-    /// again immediately.
+    /// True when "play" means start over: at the end of the playlist
+    /// `keep-open=yes` leaves an ended title paused on its last frame, and
+    /// resuming there would end again immediately.
     pub fn should_restart(&self) -> bool {
         self.ended && self.paused
     }
@@ -212,6 +222,28 @@ mod tests {
         state.set_play_state(false);
         state.apply(&PlayerEvent::Loaded);
         assert!(!state.ended && state.position == 0.0);
+    }
+
+    #[test]
+    fn a_playlist_step_follows_the_path_property() {
+        // `playlist_step` changes the file without the front-end calling
+        // `set_source`; mpv's `path` is what tells the fold about it.
+        let mut state = PlaybackState::default();
+        state.set_source("/d/a.mkv");
+        state.apply(&PlayerEvent::Loaded);
+        state.apply(&PlayerEvent::Property {
+            name: "path".into(),
+            value: PropertyValue::Str("/d/b.mkv".into()),
+        });
+        assert_eq!(state.source.as_deref(), Some("/d/b.mkv"));
+        assert_eq!(state.title().as_deref(), Some("b.mkv"));
+
+        // An idle core reports no path: that must not erase the title.
+        state.apply(&PlayerEvent::Property {
+            name: "path".into(),
+            value: PropertyValue::Str(String::new()),
+        });
+        assert_eq!(state.source.as_deref(), Some("/d/b.mkv"));
     }
 
     #[test]

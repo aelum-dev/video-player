@@ -136,15 +136,18 @@ fn build_playbar(shared: &Shared) -> (gtk::Revealer, PlayBar) {
     bar.add_css_class("floating-bar");
     bar.add_css_class("floating-playbar");
 
-    let prev_chapter = flat_button(
+    // Skip to the previous/next file in the directory; with no playlist to
+    // walk the core steps chapters instead (see `skip_target`). Chapter
+    // stepping also lives on Ctrl+Left/Right.
+    let prev_skip = flat_button(
         "media-skip-backward-symbolic",
-        Some("app.chapter-prev"),
-        "Previous chapter",
+        Some("app.skip-prev"),
+        "Previous file / chapter (<)",
     );
-    let next_chapter = flat_button(
+    let next_skip = flat_button(
         "media-skip-forward-symbolic",
-        Some("app.chapter-next"),
-        "Next chapter",
+        Some("app.skip-next"),
+        "Next file / chapter (>)",
     );
 
     let time_label = gtk::Label::new(Some("0:00"));
@@ -241,8 +244,8 @@ fn build_playbar(shared: &Shared) -> (gtk::Revealer, PlayBar) {
         "Fullscreen (f / F11)",
     );
 
-    bar.append(&prev_chapter);
-    bar.append(&next_chapter);
+    bar.append(&prev_skip);
+    bar.append(&next_skip);
     bar.append(&time_label);
     bar.append(&seek);
     bar.append(&duration_label);

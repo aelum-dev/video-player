@@ -228,6 +228,23 @@ fn setup_actions(app: &adw::Application, shared: &Shared) {
         app.add_action(&action);
     }
 
+    // The skip controls. With directory autoload on (the default) mpv has
+    // populated a playlist when the current file was opened, and these walk
+    // it; with it off — or a file alone in its directory — the core decides
+    // per press and steps chapters instead, so the buttons never go dead.
+    for (name, delta) in [("skip-prev", -1), ("skip-next", 1)] {
+        let action = gtk::gio::SimpleAction::new(name, None);
+        let engine = shared.engine.clone();
+        action.connect_activate(move |_, _| {
+            if let Err(err) = engine.skip_step(delta) {
+                // Nothing to walk in either direction (no playlist, no
+                // chapters): mpv's error, logged and ignored.
+                tracing::debug!(%err, "skip step failed");
+            }
+        });
+        app.add_action(&action);
+    }
+
     let volume_rel = gtk::gio::SimpleAction::new("volume-rel", Some(&i32::static_variant_type()));
     volume_rel.connect_activate({
         let shared = shared.clone();
@@ -289,6 +306,9 @@ fn setup_actions(app: &adw::Application, shared: &Shared) {
     app.set_accels_for_action(&format!("app.seek-rel({SEEK_STEP_SECS})"), &["Right"]);
     app.set_accels_for_action("app.chapter-prev", &["<Primary>Left"]);
     app.set_accels_for_action("app.chapter-next", &["<Primary>Right"]);
+    // mpv's own playlist keys: `<` and `>` (shift-comma / shift-period).
+    app.set_accels_for_action("app.skip-prev", &["less"]);
+    app.set_accels_for_action("app.skip-next", &["greater"]);
     app.set_accels_for_action(&format!("app.volume-rel({VOLUME_STEP})"), &["Up"]);
     app.set_accels_for_action(&format!("app.volume-rel(-{VOLUME_STEP})"), &["Down"]);
     app.set_accels_for_action("app.mute", &["m"]);
@@ -345,10 +365,12 @@ pub(crate) fn open_source(shared: &Shared, path: &str, autoplay: bool, starts_at
 /// With nothing loaded — the state the player starts in — this is the button
 /// that starts the last title the player had, at the position it stopped at.
 ///
-/// A title that ran to its end starts over: `keep-open=always` leaves mpv
-/// holding the last frame, and resuming there would end again immediately.
-/// (Only while paused — with `keep-open-pause=no` a title can sit at EOF
-/// still "playing", where the button means pause.)
+/// A title that ran to its end at the end of the playlist starts over:
+/// `keep-open=yes` leaves mpv holding the last frame there, and resuming
+/// there would end again immediately. (A title that ends mid-playlist has
+/// already advanced to the next file.) (Only while paused — with
+/// `keep-open-pause=no` a title can sit at EOF still "playing", where the
+/// button means pause.)
 fn toggle_playback(shared: &Shared) {
     if shared.state.borrow().source.is_none()
         && let Some(entry) = shared.pending.borrow_mut().take()
@@ -414,12 +436,6 @@ fn start_event_pump(shared: &Shared) {
                     match event {
                         PlayerEvent::Loaded => {
                             loaded = true;
-                            tracing::info!(title = ?state.title(), "media loaded");
-                            if let (Some(title), Some(win)) =
-                                (state.title(), shared.window.borrow().clone())
-                            {
-                                win.set_title(Some(&title));
-                            }
                             // The position `open_source` queued, if any — this is
                             // the first moment a seek is legal.
                             let resume = shared.resume_at.replace(0.0);
@@ -436,6 +452,24 @@ fn start_event_pump(shared: &Shared) {
                         _ => {}
                     }
                 }
+                // Logged after the whole batch, not at the `Loaded` event:
+                // mpv's `path` change for a stepped-to file lands AFTER
+                // `file-loaded` (probed on 0.41), so the fold still names
+                // the previous file at that moment.
+                if loaded {
+                    tracing::info!(title = ?state.title(), "media loaded");
+                }
+            }
+            // The window title mirrors the folded title whenever they differ —
+            // same ordering reason as the log above: a playlist step's new
+            // file is known only after the batch, and never at `Loaded`.
+            // The header label already follows the state on every refresh;
+            // this keeps the window title equally honest.
+            if let (Some(win), Some(title)) =
+                (shared.window.borrow().clone(), shared.state.borrow().title())
+                && win.title().as_deref() != Some(title.as_str())
+            {
+                win.set_title(Some(&title));
             }
             if let Some(controls) = shared.controls.borrow().as_ref() {
                 // Chapter markers only exist once the title is loaded.
