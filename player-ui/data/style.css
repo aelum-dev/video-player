@@ -226,6 +226,18 @@ button.center-play {
     padding: 0;
     -gtk-icon-size: 44px;
     color: #f6f6f6;
+    /* Not inside a .floating-bar, so none of the bar button rules reach it;
+       carry the same state language explicitly: faint wash on hover, press
+       box on click, full pill (circle at this size) like the bar controls. */
+    border-radius: 999px;
+}
+
+button.center-play:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+button.center-play:active {
+    background: rgba(255, 255, 255, 0.15);
 }
 
 /* Drag & drop feedback: while a file drag is over the window, frame the
