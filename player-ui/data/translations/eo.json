@@ -1,0 +1,21 @@
+{
+  "app.name": "Videoludilo",
+  "bar.fullscreen": "Plena ekrano (f / F11)",
+  "bar.mute": "Silentigi (m)",
+  "bar.speed": "Rapido",
+  "bar.volume": "Laŭteco (↑/↓)",
+  "center.next": "Sekva dosiero / ĉapitro (>)",
+  "center.prev": "Antaŭa dosiero / ĉapitro (<)",
+  "dialog.open.title": "Malfermi amaskomunikilojn",
+  "drop.hint": "Faligu por ludi",
+  "header.close": "Fermi (Ctrl+Q)",
+  "header.open": "Malfermi amaskomunikilojn (Ctrl+O)",
+  "menu.fullscreen": "Plena ekrano",
+  "menu.label": "Menuo",
+  "menu.open": "Malfermi amaskomunikilojn…",
+  "menu.quit": "Eliri",
+  "toast.dndExtra": "Ludante la unuan el {count} faligitaj dosieroj (ankoraŭ ne estas ludlisto)",
+  "toast.noGl": "La videosurfaco ne ekfunkciis: neniu GL-rendera kunteksto (vidu la protokolon)",
+  "toast.openFailed": "Ne eblis malfermi {path}: {error}",
+  "toast.playbackFailed": "Ludado malsukcesis: {error}"
+}

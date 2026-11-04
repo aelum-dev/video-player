@@ -1,0 +1,21 @@
+{
+  "app.name": "Videospelare",
+  "bar.fullscreen": "Helskärm (f / F11)",
+  "bar.mute": "Ljudlös (m)",
+  "bar.speed": "Hastighet",
+  "bar.volume": "Volym (↑/↓)",
+  "center.next": "Nästa fil / kapitel (>)",
+  "center.prev": "Föregående fil / kapitel (<)",
+  "dialog.open.title": "Öppna media",
+  "drop.hint": "Släpp för att spela upp",
+  "header.close": "Stäng (Ctrl+Q)",
+  "header.open": "Öppna media (Ctrl+O)",
+  "menu.fullscreen": "Helskärm",
+  "menu.label": "Meny",
+  "menu.open": "Öppna media…",
+  "menu.quit": "Avsluta",
+  "toast.dndExtra": "Spelar den första av {count} släppta filer (ingen spellista ännu)",
+  "toast.noGl": "Videoytan kunde inte starta: ingen GL-renderingskontext (se loggen)",
+  "toast.openFailed": "Kunde inte öppna {path}: {error}",
+  "toast.playbackFailed": "Uppspelning misslyckades: {error}"
+}

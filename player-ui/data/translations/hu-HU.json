@@ -1,0 +1,21 @@
+{
+  "app.name": "Videolejátszó",
+  "bar.fullscreen": "Teljes képernyő (f / F11)",
+  "bar.mute": "Némítás (m)",
+  "bar.speed": "Sebesség",
+  "bar.volume": "Hangerő (↑/↓)",
+  "center.next": "Következő fájl / fejezet (>)",
+  "center.prev": "Előző fájl / fejezet (<)",
+  "dialog.open.title": "Média megnyitása",
+  "drop.hint": "Engedje el a lejátszáshoz",
+  "header.close": "Bezárás (Ctrl+Q)",
+  "header.open": "Média megnyitása (Ctrl+O)",
+  "menu.fullscreen": "Teljes képernyő",
+  "menu.label": "Menü",
+  "menu.open": "Média megnyitása…",
+  "menu.quit": "Kilépés",
+  "toast.dndExtra": "A(z) {count} ejtett fájl közül az első lejátszása (még nincs lejátszási lista)",
+  "toast.noGl": "A video felülete nem indult el: nincs GL renderelési kontextus (lásd a naplót)",
+  "toast.openFailed": "Nem sikerült megnyitni a(z) {path} fájlt: {error}",
+  "toast.playbackFailed": "A lejátszás sikertelen: {error}"
+}

@@ -1,0 +1,21 @@
+{
+  "app.name": "נגן וידאו",
+  "bar.fullscreen": "מסך מלא (f / F11)",
+  "bar.mute": "השתקה (m)",
+  "bar.speed": "מהירות",
+  "bar.volume": "עוצמת קול (↑/↓)",
+  "center.next": "הקובץ / הפרק הבא (>)",
+  "center.prev": "הקובץ / הפרק הקודם (<)",
+  "dialog.open.title": "פתיחת מדיה",
+  "drop.hint": "שחררו כאן כדי לנגן",
+  "header.close": "סגירה (Ctrl+Q)",
+  "header.open": "פתיחת מדיה (Ctrl+O)",
+  "menu.fullscreen": "מסך מלא",
+  "menu.label": "תפריט",
+  "menu.open": "פתיחת מדיה…",
+  "menu.quit": "יציאה",
+  "toast.dndExtra": "מנגן את הראשון מתוך {count} קבצים ששוחררו (אין עדיין רשימת ניגון)",
+  "toast.noGl": "פני הווידאו לא הצליחו להתחיל: אין הקשר רינדור GL (עיין ביומן)",
+  "toast.openFailed": "לא ניתן לפתוח את {path}: {error}",
+  "toast.playbackFailed": "הניגון נכשל: {error}"
+}

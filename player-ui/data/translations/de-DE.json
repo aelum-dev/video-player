@@ -1,0 +1,21 @@
+{
+  "app.name": "Videoplayer",
+  "bar.fullscreen": "Vollbild (f / F11)",
+  "bar.mute": "Stummschalten (m)",
+  "bar.speed": "Geschwindigkeit",
+  "bar.volume": "Lautstärke (↑/↓)",
+  "center.next": "Nächste Datei / nächstes Kapitel (>)",
+  "center.prev": "Vorherige Datei / vorheriges Kapitel (<)",
+  "dialog.open.title": "Medien öffnen",
+  "drop.hint": "Hier ablegen, um abzuspielen",
+  "header.close": "Schließen (Ctrl+Q)",
+  "header.open": "Medien öffnen (Ctrl+O)",
+  "menu.fullscreen": "Vollbild",
+  "menu.label": "Menü",
+  "menu.open": "Medien öffnen…",
+  "menu.quit": "Beenden",
+  "toast.dndExtra": "Die erste von {count} abgelegten Dateien wird wiedergegeben (noch keine Wiedergabeliste)",
+  "toast.noGl": "Videofläche konnte nicht gestartet werden: kein GL-Renderkontext (siehe Protokoll)",
+  "toast.openFailed": "{path} konnte nicht geöffnet werden: {error}",
+  "toast.playbackFailed": "Wiedergabe fehlgeschlagen: {error}"
+}

@@ -1,0 +1,21 @@
+{
+  "app.name": "Lettore video",
+  "bar.fullscreen": "Schermo intero (f / F11)",
+  "bar.mute": "Disattiva l’audio (m)",
+  "bar.speed": "Velocità",
+  "bar.volume": "Volume (↑/↓)",
+  "center.next": "File / capitolo successivo (>)",
+  "center.prev": "File / capitolo precedente (<)",
+  "dialog.open.title": "Apri supporti",
+  "drop.hint": "Rilascia per riprodurre",
+  "header.close": "Chiudi (Ctrl+Q)",
+  "header.open": "Apri supporti (Ctrl+O)",
+  "menu.fullscreen": "Schermo intero",
+  "menu.label": "Menu",
+  "menu.open": "Apri supporti…",
+  "menu.quit": "Esci",
+  "toast.dndExtra": "Riproduzione del primo dei {count} file rilasciati (nessun elenco di riproduzione ancora disponibile)",
+  "toast.noGl": "La superficie video non è stata avviata: nessun contesto di rendering GL (vedere il log)",
+  "toast.openFailed": "Impossibile aprire {path}: {error}",
+  "toast.playbackFailed": "Riproduzione non riuscita: {error}"
+}

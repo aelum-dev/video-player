@@ -129,6 +129,27 @@ before trusting a version-specific claim.
   big labels leaked into the speed/volume dropdowns). Settled with
   red-border probes on both node kinds.
 
+### i18n / text-direction additions (GTK 4.24)
+- **Widget direction is NOT inherited.** `window.set_direction(Rtl)` leaves
+  every child at LTR — both `widget.direction()` and what is drawn. Settled by
+  screen capture: a box whose **own** direction is RTL mirrors its children
+  (`[A][B][C]` renders C,B,A), a box under an RTL window does not. So set it on
+  each container — `ui::window::apply_rtl` walks `first_child`/`next_sibling`.
+- GTK4 has **no `gtk-direction` setting** (the GTK3 `GtkSettings` property is
+  gone — not in `Gtk-4.0.gir`), so there is no global switch to lean on.
+- Mirroring needs no `CenterBox` and no re-packing: `GtkBox` reverses child
+  order once its own direction is RTL.
+- **A `MenuButton`'s popover is part of the widget tree** — `menubutton
+  .first_child()` is the popover — so a subtree walk covers popover contents
+  (verified: the volume/speed boxes came out RTL from one call on the window).
+- A `GtkScale` with RTL direction draws its trough **from the right edge**, so
+  hand-written pixel→value math must flip with it (`seek::click_fraction`;
+  without the flip, clicking the right end of an Arabic UI seeks to the start).
+- Directional symbolic icons mirror themselves in RTL (the play triangle
+  flipped) — that is GTK doing it, not a bug to work around.
+- `set_direction` twice (once via a subtree walk, once directly) is idempotent,
+  so overlapping calls cost nothing.
+
 ## Key facts learned about the mpv render API
 - **`mpv_render_context_render()` leaves the FBO binding at 0.** Any readback must
   bind `GL_READ_FRAMEBUFFER` (0x8CA8) first; and rebind the toolkit's FBO after the

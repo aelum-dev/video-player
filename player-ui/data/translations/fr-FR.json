@@ -1,0 +1,21 @@
+{
+  "app.name": "Lecteur vidéo",
+  "bar.fullscreen": "Plein écran (f / F11)",
+  "bar.mute": "Couper le son (m)",
+  "bar.speed": "Vitesse",
+  "bar.volume": "Volume (↑/↓)",
+  "center.next": "Fichier / chapitre suivant (>)",
+  "center.prev": "Fichier / chapitre précédent (<)",
+  "dialog.open.title": "Ouvrir un média",
+  "drop.hint": "Déposer pour lire",
+  "header.close": "Fermer (Ctrl+Q)",
+  "header.open": "Ouvrir un média (Ctrl+O)",
+  "menu.fullscreen": "Plein écran",
+  "menu.label": "Menu",
+  "menu.open": "Ouvrir un média…",
+  "menu.quit": "Quitter",
+  "toast.dndExtra": "Lecture du premier des {count} fichiers déposés (pas encore de liste de lecture)",
+  "toast.noGl": "Échec du démarrage de la surface vidéo : aucun contexte de rendu GL (voir le journal)",
+  "toast.openFailed": "Impossible d’ouvrir {path} : {error}",
+  "toast.playbackFailed": "Échec de la lecture : {error}"
+}

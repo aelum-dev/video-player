@@ -1,0 +1,21 @@
+{
+  "app.name": "Odtwarzacz wideo",
+  "bar.fullscreen": "Pełny ekran (f / F11)",
+  "bar.mute": "Wyciszenie (m)",
+  "bar.speed": "Prędkość",
+  "bar.volume": "Głośność (↑/↓)",
+  "center.next": "Następny plik / rozdział (>)",
+  "center.prev": "Poprzedni plik / rozdział (<)",
+  "dialog.open.title": "Otwórz nośniki",
+  "drop.hint": "Upuść, aby odtworzyć",
+  "header.close": "Zamknij (Ctrl+Q)",
+  "header.open": "Otwórz nośniki (Ctrl+O)",
+  "menu.fullscreen": "Pełny ekran",
+  "menu.label": "Menu",
+  "menu.open": "Otwórz nośniki…",
+  "menu.quit": "Zakończ",
+  "toast.dndExtra": "Odtwarzanie pierwszego z {count} upuszczonych plików (brak listy odtwarzania)",
+  "toast.noGl": "Nie można uruchomić powierzchni wideo: brak kontekstu renderowania GL (zobacz dziennik)",
+  "toast.openFailed": "Nie można otworzyć {path}: {error}",
+  "toast.playbackFailed": "Odtwarzanie nie powiodło się: {error}"
+}

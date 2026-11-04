@@ -1,0 +1,21 @@
+{
+  "app.name": "视频播放器",
+  "bar.fullscreen": "全屏 (f / F11)",
+  "bar.mute": "静音 (m)",
+  "bar.speed": "速度",
+  "bar.volume": "音量 (↑/↓)",
+  "center.next": "下一个文件 / 章节 (>)",
+  "center.prev": "上一个文件 / 章节 (<)",
+  "dialog.open.title": "打开媒体",
+  "drop.hint": "放下来播放",
+  "header.close": "关闭 (Ctrl+Q)",
+  "header.open": "打开媒体 (Ctrl+O)",
+  "menu.fullscreen": "全屏",
+  "menu.label": "菜单",
+  "menu.open": "打开媒体…",
+  "menu.quit": "退出",
+  "toast.dndExtra": "正在播放拖放的 {count} 个文件中的第一个（尚无播放列表）",
+  "toast.noGl": "视频表面启动失败：没有 GL 渲染上下文（见日志）",
+  "toast.openFailed": "无法打开 {path}：{error}",
+  "toast.playbackFailed": "播放失败：{error}"
+}

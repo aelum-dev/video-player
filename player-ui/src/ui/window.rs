@@ -32,6 +32,25 @@ fn overlay_revealer(bar: &impl IsA<gtk::Widget>, valign: gtk::Align) -> gtk::Rev
     revealer
 }
 
+/// Mark a widget and everything below it right-to-left (no-op in LTR locales).
+///
+/// GTK's widget direction is NOT inherited: `set_direction` on the window
+/// leaves every child at LTR — settled by screen capture, a box whose own
+/// direction is RTL mirrors its children, a box under an RTL window does not.
+/// That is why this walks the subtree instead of setting the window.
+fn apply_rtl(root: &impl IsA<gtk::Widget>) {
+    if !i18n::is_rtl() {
+        return;
+    }
+    let root = root.as_ref();
+    root.set_direction(gtk::TextDirection::Rtl);
+    let mut child = root.first_child();
+    while let Some(widget) = child {
+        apply_rtl(&widget);
+        child = widget.next_sibling();
+    }
+}
+
 fn flat_button(icon: &str, action: Option<&str>, tip: &str) -> gtk::Button {
     let button = gtk::Button::builder().icon_name(icon).tooltip_text(tip).build();
     button.add_css_class("flat");
@@ -398,6 +417,12 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
     window.set_content(Some(&toasts));
     *shared.toasts.borrow_mut() = Some(toasts);
     *shared.controls.borrow_mut() = Some(controls.clone());
+
+    // RTL locales mirror the layout (ar-SA, fa-IR, he-IL). Done here, once the
+    // tree is assembled, so every control is covered — see `apply_rtl` for why
+    // setting the direction on the window alone does nothing. The video surface
+    // is unaffected: mpv draws in its own coordinates.
+    apply_rtl(&window);
 
     // Pointer anywhere in the window: controls come back.
     let motion = gtk::EventControllerMotion::new();

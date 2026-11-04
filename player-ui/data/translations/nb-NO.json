@@ -1,0 +1,21 @@
+{
+  "app.name": "Videoavspiller",
+  "bar.fullscreen": "Fullskjerm (f / F11)",
+  "bar.mute": "Demp (m)",
+  "bar.speed": "Fart",
+  "bar.volume": "Volum (↑/↓)",
+  "center.next": "Neste fil / kapittel (>)",
+  "center.prev": "Forrige fil / kapittel (<)",
+  "dialog.open.title": "Åpne media",
+  "drop.hint": "Slipp for å spille av",
+  "header.close": "Lukk (Ctrl+Q)",
+  "header.open": "Åpne media (Ctrl+O)",
+  "menu.fullscreen": "Fullskjerm",
+  "menu.label": "Meny",
+  "menu.open": "Åpne media…",
+  "menu.quit": "Avslutt",
+  "toast.dndExtra": "Spiller av den første av {count} filer som ble sluppet (ingen spilleliste ennå)",
+  "toast.noGl": "Videoflaten startet ikke: ingen GL-renderkontekst (se loggen)",
+  "toast.openFailed": "Kunne ikke åpne {path}: {error}",
+  "toast.playbackFailed": "Avspilling feilet: {error}"
+}

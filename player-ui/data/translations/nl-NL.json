@@ -1,0 +1,21 @@
+{
+  "app.name": "Videospeler",
+  "bar.fullscreen": "Beeldschermvullend (f / F11)",
+  "bar.mute": "Dempen (m)",
+  "bar.speed": "Snelheid",
+  "bar.volume": "Volume (↑/↓)",
+  "center.next": "Volgend bestand / hoofdstuk (>)",
+  "center.prev": "Vorig bestand / hoofdstuk (<)",
+  "dialog.open.title": "Media openen",
+  "drop.hint": "Neerzetten om af te spelen",
+  "header.close": "Sluiten (Ctrl+Q)",
+  "header.open": "Media openen (Ctrl+O)",
+  "menu.fullscreen": "Beeldschermvullend",
+  "menu.label": "Menu",
+  "menu.open": "Media openen…",
+  "menu.quit": "Afsluiten",
+  "toast.dndExtra": "Speelt het eerste van {count} neergezette bestanden af (nog geen afspeellijst)",
+  "toast.noGl": "Videovlak kon niet worden gestart: geen GL-rendercontext (zie logboek)",
+  "toast.openFailed": "Kan {path} niet openen: {error}",
+  "toast.playbackFailed": "Afspelen mislukt: {error}"
+}

@@ -1,0 +1,21 @@
+{
+  "app.name": "Reprodutor de vídeo",
+  "bar.fullscreen": "Tela cheia (f / F11)",
+  "bar.mute": "Silenciar (m)",
+  "bar.speed": "Velocidade",
+  "bar.volume": "Volume (↑/↓)",
+  "center.next": "Próximo arquivo / capítulo (>)",
+  "center.prev": "Arquivo / capítulo anterior (<)",
+  "dialog.open.title": "Abrir mídia",
+  "drop.hint": "Solte para reproduzir",
+  "header.close": "Fechar (Ctrl+Q)",
+  "header.open": "Abrir mídia (Ctrl+O)",
+  "menu.fullscreen": "Tela cheia",
+  "menu.label": "Menu",
+  "menu.open": "Abrir mídia…",
+  "menu.quit": "Sair",
+  "toast.dndExtra": "Reproduzindo o primeiro dos {count} arquivos soltos (ainda não há lista de reprodução)",
+  "toast.noGl": "Falha ao iniciar a superfície de vídeo: nenhum contexto de renderização GL (veja o log)",
+  "toast.openFailed": "Não foi possível abrir {path}: {error}",
+  "toast.playbackFailed": "Falha na reprodução: {error}"
+}

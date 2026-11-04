@@ -9,11 +9,12 @@
 //! needs no data directory.
 //!
 //! `SUPPORTED_LOCALES` is the locale contract, copied from the installer's
-//! language list; only en-US has a catalog so far. A supported-but-untranslated
-//! locale resolves to English through the per-key fallback, so shipping a
-//! translation is a data change: drop in `data/translations/<code>.json` and
-//! add it to `CATALOGS`. (RTL locales will also want the window direction set
-//! when they arrive — English-only code deliberately does not carry that yet.)
+//! language list, and every one of them now has a catalog in
+//! `data/translations/`. A supported-but-untranslated locale would still
+//! resolve to English through the per-key fallback, so shipping a translation
+//! is a data change: drop in `data/translations/<code>.json` and add it to
+//! `CATALOGS` — the completeness test at the bottom of this file fails if a
+//! catalog is missing a key, carries an unknown key, or loses a `{placeholder}`.
 //!
 //! This covers the app's own strings only. GTK's chrome (file chooser buttons,
 //! sort menus) is localized by GTK itself from the process locale.
@@ -34,9 +35,43 @@ const SUPPORTED_LOCALES: &[&str] = &[
     "pt-BR", "ru-RU", "sv-SE", "tr-TR", "uk-UA", "vi-VN", "zh-CN", "zh-TW",
 ];
 
+/// The right-to-left locales in the supported list — the same set the
+/// installer frontend carries as `RTL_LOCALES`. The window direction follows
+/// this (see `is_rtl` and `ui::window::build_window`).
+const RTL_LOCALES: &[&str] = &["ar-SA", "fa-IR", "he-IL"];
+
 /// The catalogs compiled into the binary. English must be here (it is the
-/// fallback); the others appear as translations land.
-const CATALOGS: &[(&str, &str)] = &[("en-US", include_str!("../data/translations/en-US.json"))];
+/// fallback); the completeness test checks that every supported locale is too.
+const CATALOGS: &[(&str, &str)] = &[
+    ("ar-SA", include_str!("../data/translations/ar-SA.json")),
+    ("bg-BG", include_str!("../data/translations/bg-BG.json")),
+    ("ca-ES", include_str!("../data/translations/ca-ES.json")),
+    ("de-DE", include_str!("../data/translations/de-DE.json")),
+    ("el-GR", include_str!("../data/translations/el-GR.json")),
+    ("en-US", include_str!("../data/translations/en-US.json")),
+    ("eo", include_str!("../data/translations/eo.json")),
+    ("es-ES", include_str!("../data/translations/es-ES.json")),
+    ("fa-IR", include_str!("../data/translations/fa-IR.json")),
+    ("fi-FI", include_str!("../data/translations/fi-FI.json")),
+    ("fr-FR", include_str!("../data/translations/fr-FR.json")),
+    ("he-IL", include_str!("../data/translations/he-IL.json")),
+    ("hu-HU", include_str!("../data/translations/hu-HU.json")),
+    ("id-ID", include_str!("../data/translations/id-ID.json")),
+    ("it-IT", include_str!("../data/translations/it-IT.json")),
+    ("ja-JP", include_str!("../data/translations/ja-JP.json")),
+    ("ko-KR", include_str!("../data/translations/ko-KR.json")),
+    ("nb-NO", include_str!("../data/translations/nb-NO.json")),
+    ("nl-NL", include_str!("../data/translations/nl-NL.json")),
+    ("pl-PL", include_str!("../data/translations/pl-PL.json")),
+    ("pt-BR", include_str!("../data/translations/pt-BR.json")),
+    ("ru-RU", include_str!("../data/translations/ru-RU.json")),
+    ("sv-SE", include_str!("../data/translations/sv-SE.json")),
+    ("tr-TR", include_str!("../data/translations/tr-TR.json")),
+    ("uk-UA", include_str!("../data/translations/uk-UA.json")),
+    ("vi-VN", include_str!("../data/translations/vi-VN.json")),
+    ("zh-CN", include_str!("../data/translations/zh-CN.json")),
+    ("zh-TW", include_str!("../data/translations/zh-TW.json")),
+];
 
 /// The process locale, picked up the way glibc would: LC_ALL, then
 /// LC_MESSAGES, then LANG.
@@ -114,6 +149,7 @@ fn catalog(code: &str) -> HashMap<String, String> {
 struct I18n {
     messages: HashMap<String, String>,
     fallback: HashMap<String, String>,
+    rtl: bool,
 }
 
 impl I18n {
@@ -124,7 +160,11 @@ impl I18n {
         } else {
             catalog(locale)
         };
-        I18n { messages, fallback }
+        I18n {
+            rtl: RTL_LOCALES.contains(&locale),
+            messages,
+            fallback,
+        }
     }
 
     /// Active locale → en-US → the key itself, like the installer frontend.
@@ -198,6 +238,12 @@ pub fn t_fmt(key: &str, args: &[(&str, &str)]) -> String {
         .t_fmt(key, args)
 }
 
+/// Whether the active locale reads right-to-left. The window layout follows
+/// this (the installer frontend does the same through `getIsRTL()`).
+pub fn is_rtl() -> bool {
+    I18N.get_or_init(|| I18n::load(select_locale(None))).rtl
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -242,10 +288,11 @@ mod tests {
     }
 
     #[test]
-    fn untranslated_locales_fall_back_to_english_per_key() {
-        // de-DE is supported but has no catalog yet: every key resolves
-        // through English, exactly like the installer frontend.
-        let i18n = I18n::load("de-DE");
+    fn a_locale_without_a_catalog_falls_back_to_english_per_key() {
+        // No catalog is embedded for this code: every key resolves through
+        // English and an unknown key stays itself. This is also what keeps a
+        // partially translated future catalog safe, key by key.
+        let i18n = I18n::load("hr-HR");
         assert_eq!(i18n.t("app.name"), "Video player");
         assert_eq!(i18n.t("no.such.key"), "no.such.key");
     }
@@ -307,5 +354,90 @@ mod tests {
         ] {
             assert!(english.contains_key(key), "en-US.json is missing {key}");
         }
+    }
+
+    #[test]
+    fn every_supported_locale_has_an_embedded_catalog() {
+        // The two lists are the locale contract; either half drifting is a bug
+        // (a supported locale silently stays English, an embedded-but-
+        // unsupported catalog is dead weight in the binary).
+        for code in SUPPORTED_LOCALES {
+            assert!(
+                CATALOGS.iter().any(|(c, _)| c == code),
+                "{code} is supported but has no catalog"
+            );
+        }
+        for (code, _) in CATALOGS {
+            assert!(
+                SUPPORTED_LOCALES.contains(code),
+                "{code} has a catalog but is not a supported locale"
+            );
+        }
+    }
+
+    #[test]
+    fn every_catalog_defines_the_english_key_set_and_placeholders() {
+        // A missing key quietly shows the English string, and a lost
+        // `{placeholder}` drops its argument from the sentence — both are data
+        // bugs that only surface on screen, so they get caught here instead.
+        let english: HashMap<String, String> = serde_json::from_str(
+            CATALOGS
+                .iter()
+                .find(|(code, _)| *code == FALLBACK)
+                .expect("the English catalog is embedded")
+                .1,
+        )
+        .expect("en-US.json parses");
+        for (code, json) in CATALOGS {
+            let parsed: HashMap<String, String> = serde_json::from_str(json)
+                .unwrap_or_else(|err| panic!("{code}.json does not parse: {err}"));
+            let mut got: Vec<&str> = parsed.keys().map(String::as_str).collect();
+            let mut want: Vec<&str> = english.keys().map(String::as_str).collect();
+            got.sort_unstable();
+            want.sort_unstable();
+            assert_eq!(got, want, "{code}.json does not define exactly the English keys");
+            for (key, template) in &english {
+                let value = &parsed[key];
+                assert!(!value.trim().is_empty(), "{code}.json has an empty {key}");
+                assert_eq!(
+                    placeholders(value),
+                    placeholders(template),
+                    "{code}.json changed the placeholders in {key}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_right_to_left_locales_are_flagged() {
+        // Mirrors the installer frontend's RTL_LOCALES; the window direction
+        // is set from this, so a missing entry means a mirrored UI in English
+        // order.
+        for code in RTL_LOCALES {
+            assert!(I18n::load(code).rtl, "{code} should be right-to-left");
+        }
+        for code in ["de-DE", "zh-CN", "eo", FALLBACK] {
+            assert!(!I18n::load(code).rtl, "{code} should stay left-to-right");
+        }
+    }
+
+    /// The `{name}` names in a message, sorted and deduplicated — scanned the
+    /// same way `interpolate` reads them.
+    fn placeholders(message: &str) -> Vec<&str> {
+        let mut found = Vec::new();
+        let mut rest = message;
+        while let Some(open) = rest.find('{') {
+            let after = &rest[open + 1..];
+            match after.find('}') {
+                Some(close) if is_name(&after[..close]) => {
+                    found.push(&after[..close]);
+                    rest = &after[close + 1..];
+                }
+                _ => rest = after,
+            }
+        }
+        found.sort_unstable();
+        found.dedup();
+        found
     }
 }

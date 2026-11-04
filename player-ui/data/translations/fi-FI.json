@@ -1,0 +1,21 @@
+{
+  "app.name": "Videosoitin",
+  "bar.fullscreen": "Koko näyttö (f / F11)",
+  "bar.mute": "Mykennä (m)",
+  "bar.speed": "Toistonopeus",
+  "bar.volume": "Äänenvoimakkuus (↑/↓)",
+  "center.next": "Seuraava tiedosto / kappale (>)",
+  "center.prev": "Edellinen tiedosto / kappale (<)",
+  "dialog.open.title": "Avaa media",
+  "drop.hint": "Pudota tässä toistaaksesi",
+  "header.close": "Sulje (Ctrl+Q)",
+  "header.open": "Avaa media (Ctrl+O)",
+  "menu.fullscreen": "Koko näyttö",
+  "menu.label": "Valikko",
+  "menu.open": "Avaa media…",
+  "menu.quit": "Lopeta",
+  "toast.dndExtra": "Toistetaan ensimmäinen pudotetuista {count} tiedostosta (soittolistaa ei vielä ole)",
+  "toast.noGl": "Videopintaa ei voitu käynnistää: ei GL-piirtokontekstia (katso loki)",
+  "toast.openFailed": "Tiedostoa {path} ei voitu avata: {error}",
+  "toast.playbackFailed": "Toisto epäonnistui: {error}"
+}

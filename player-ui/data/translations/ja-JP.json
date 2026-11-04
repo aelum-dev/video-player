@@ -1,0 +1,21 @@
+{
+  "app.name": "ビデオプレーヤー",
+  "bar.fullscreen": "全画面表示 (f / F11)",
+  "bar.mute": "ミュート (m)",
+  "bar.speed": "再生速度",
+  "bar.volume": "音量 (↑/↓)",
+  "center.next": "次のファイル / チャプター (>)",
+  "center.prev": "前のファイル / チャプター (<)",
+  "dialog.open.title": "メディアを開く",
+  "drop.hint": "ドロップすると再生されます",
+  "header.close": "閉じる (Ctrl+Q)",
+  "header.open": "メディアを開く (Ctrl+O)",
+  "menu.fullscreen": "全画面表示",
+  "menu.label": "メニュー",
+  "menu.open": "メディアを開く…",
+  "menu.quit": "終了",
+  "toast.dndExtra": "ドロップされた {count} 個のファイルのうち最初のものを再生しています (プレイリストはまだありません)",
+  "toast.noGl": "ビデオサーフェスの起動に失敗しました: GL レンダーコンテキストがありません (ログを参照してください)",
+  "toast.openFailed": "{path} を開けませんでした: {error}",
+  "toast.playbackFailed": "再生に失敗しました: {error}"
+}

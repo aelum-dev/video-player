@@ -1,0 +1,21 @@
+{
+  "app.name": "影片播放器",
+  "bar.fullscreen": "全螢幕 (f / F11)",
+  "bar.mute": "靜音 (m)",
+  "bar.speed": "速度",
+  "bar.volume": "音量 (↑/↓)",
+  "center.next": "下一個檔案 / 章節 (>)",
+  "center.prev": "上一個檔案 / 章節 (<)",
+  "dialog.open.title": "開啟媒體",
+  "drop.hint": "放開即可播放",
+  "header.close": "關閉 (Ctrl+Q)",
+  "header.open": "開啟媒體 (Ctrl+O)",
+  "menu.fullscreen": "全螢幕",
+  "menu.label": "選單",
+  "menu.open": "開啟媒體…",
+  "menu.quit": "結束",
+  "toast.dndExtra": "正在播放拖放的 {count} 個檔案中的第一個（尚無播放清單）",
+  "toast.noGl": "影片表面啟動失敗：沒有 GL 渲染內容（詳見日誌）",
+  "toast.openFailed": "無法開啟 {path}：{error}",
+  "toast.playbackFailed": "播放失敗：{error}"
+}

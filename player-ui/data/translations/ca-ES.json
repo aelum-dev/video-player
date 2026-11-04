@@ -1,0 +1,21 @@
+{
+  "app.name": "Reproductor de vídeo",
+  "bar.fullscreen": "Pantalla completa (f / F11)",
+  "bar.mute": "Silencia (m)",
+  "bar.speed": "Velocitat",
+  "bar.volume": "Volum (↑/↓)",
+  "center.next": "Fitxer / capítol següent (>)",
+  "center.prev": "Fitxer / capítol anterior (<)",
+  "dialog.open.title": "Obre suports",
+  "drop.hint": "Deixa anar per reproduir",
+  "header.close": "Tanca (Ctrl+Q)",
+  "header.open": "Obre suports (Ctrl+O)",
+  "menu.fullscreen": "Pantalla completa",
+  "menu.label": "Menú",
+  "menu.open": "Obre suports…",
+  "menu.quit": "Surt",
+  "toast.dndExtra": "Es reprodueix el primer dels {count} fitxers deixats anar (encara no hi ha llista de reproducció)",
+  "toast.noGl": "No s'ha pogut iniciar la superfície de vídeo: cap context de renderització GL (consulteu el registre)",
+  "toast.openFailed": "No s'ha pogut obrir {path}: {error}",
+  "toast.playbackFailed": "La reproducció ha fallat: {error}"
+}

@@ -1,0 +1,21 @@
+{
+  "app.name": "Pemutar Video",
+  "bar.fullscreen": "Layar penuh (f / F11)",
+  "bar.mute": "Bisukan (m)",
+  "bar.speed": "Kecepatan",
+  "bar.volume": "Volume (↑/↓)",
+  "center.next": "Berkas / bab berikutnya (>)",
+  "center.prev": "Berkas / bab sebelumnya (<)",
+  "dialog.open.title": "Buka media",
+  "drop.hint": "Lepaskan untuk memutar",
+  "header.close": "Tutup (Ctrl+Q)",
+  "header.open": "Buka media (Ctrl+O)",
+  "menu.fullscreen": "Layar penuh",
+  "menu.label": "Menu",
+  "menu.open": "Buka media…",
+  "menu.quit": "Keluar",
+  "toast.dndExtra": "Memutar berkas pertama dari {count} berkas yang dijatuhkan (belum ada daftar putar)",
+  "toast.noGl": "Permukaan video gagal dimulai: tidak ada konteks render GL (lihat log)",
+  "toast.openFailed": "Tidak dapat membuka {path}: {error}",
+  "toast.playbackFailed": "Pemutaran gagal: {error}"
+}

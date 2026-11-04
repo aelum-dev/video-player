@@ -34,6 +34,20 @@ const SEEK_SETTLE_MS: i64 = 400;
 /// track between the knob's edge stops.
 const KNOB_HALF_PX: f64 = 19.0;
 
+/// The pressed pixel (already in the slider's own coordinate space) as a
+/// 0..=1 fraction of the track. `None` when the slider is too narrow to map.
+///
+/// An RTL slider draws its trough from the right edge (the direction is set
+/// per widget, see `window::apply_rtl`), so its pixel→value map is flipped —
+/// without that, clicking the right end of an Arabic UI would seek to the start.
+fn click_fraction(x: f64, width: f64, rtl: bool) -> Option<f64> {
+    if width <= 2.0 * KNOB_HALF_PX {
+        return None;
+    }
+    let fraction = ((x - KNOB_HALF_PX) / (width - 2.0 * KNOB_HALF_PX)).clamp(0.0, 1.0);
+    Some(if rtl { 1.0 - fraction } else { fraction })
+}
+
 /// The two cells `Controls` needs in order to leave the slider alone while
 /// the user owns it (and for a short settle window after each seek).
 pub(super) struct SeekHandle {
@@ -126,21 +140,22 @@ pub(super) fn attach(scale: &gtk::Scale, engine: &Arc<MpvEngine>) -> SeekHandle 
                         let Some(x) = local_x else {
                             return glib::Propagation::Proceed;
                         };
-                        let width = slider.width() as f64;
-                        if width > 2.0 * KNOB_HALF_PX {
-                            let fraction = ((x - KNOB_HALF_PX)
-                                / (width - 2.0 * KNOB_HALF_PX))
-                                .clamp(0.0, 1.0);
-                            let value = slider.adjustment().upper() * fraction;
-                            seeking.set(true);
-                            seek_target.set(value);
-                            slider.set_value(value);
-                            seek_settle.set(now_ms() + SEEK_SETTLE_MS);
-                            if let Err(err) = engine.seek(value) {
-                                tracing::warn!(%err, "seek failed");
-                            }
-                            arm_commit();
+                        let Some(fraction) = click_fraction(
+                            x,
+                            f64::from(slider.width()),
+                            slider.direction() == gtk::TextDirection::Rtl,
+                        ) else {
+                            return glib::Propagation::Proceed;
+                        };
+                        let value = slider.adjustment().upper() * fraction;
+                        seeking.set(true);
+                        seek_target.set(value);
+                        slider.set_value(value);
+                        seek_settle.set(now_ms() + SEEK_SETTLE_MS);
+                        if let Err(err) = engine.seek(value) {
+                            tracing::warn!(%err, "seek failed");
                         }
+                        arm_commit();
                     }
                 }
                 gtk::gdk::EventType::ButtonRelease => {
@@ -165,4 +180,34 @@ pub(super) fn attach(scale: &gtk::Scale, engine: &Arc<MpvEngine>) -> SeekHandle 
         scale.add_controller(press);
     }
     SeekHandle { seeking, seek_settle }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // A 1000 px slider: the knob centre can travel 19..=981, so the midpoint
+    // of the track is x = 19 + 962/2 = 500.
+    #[test]
+    fn click_to_position_maps_the_track_between_the_knob_stops() {
+        assert_eq!(click_fraction(19.0, 1000.0, false), Some(0.0));
+        assert_eq!(click_fraction(500.0, 1000.0, false), Some(0.5));
+        assert_eq!(click_fraction(981.0, 1000.0, false), Some(1.0));
+        // Presses past the stops clamp instead of running off the adjustment.
+        assert_eq!(click_fraction(0.0, 1000.0, false), Some(0.0));
+        assert_eq!(click_fraction(1200.0, 1000.0, false), Some(1.0));
+    }
+
+    #[test]
+    fn an_rtl_slider_seeks_from_the_right_edge() {
+        assert_eq!(click_fraction(981.0, 1000.0, true), Some(0.0));
+        assert_eq!(click_fraction(500.0, 1000.0, true), Some(0.5));
+        assert_eq!(click_fraction(19.0, 1000.0, true), Some(1.0));
+    }
+
+    #[test]
+    fn a_slider_narrower_than_its_knob_is_not_mapped() {
+        assert_eq!(click_fraction(10.0, 2.0 * KNOB_HALF_PX, false), None);
+        assert_eq!(click_fraction(10.0, 0.0, true), None);
+    }
 }

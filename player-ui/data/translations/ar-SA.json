@@ -1,0 +1,21 @@
+{
+  "app.name": "مشغّل الفيديو",
+  "bar.fullscreen": "ملء الشاشة (f / F11)",
+  "bar.mute": "كتم الصوت (m)",
+  "bar.speed": "السرعة",
+  "bar.volume": "مستوى الصوت (↑/↓)",
+  "center.next": "الملف / الفصل التالي (>)",
+  "center.prev": "الملف / الفصل السابق (<)",
+  "dialog.open.title": "فتح وسائط",
+  "drop.hint": "أفلت هنا للتشغيل",
+  "header.close": "إغلاق (Ctrl+Q)",
+  "header.open": "فتح وسائط (Ctrl+O)",
+  "menu.fullscreen": "ملء الشاشة",
+  "menu.label": "القائمة",
+  "menu.open": "فتح الوسائط…",
+  "menu.quit": "إنهاء",
+  "toast.dndExtra": "يُشغَّل الملف الأول من بين {count} ملفات أُفلتت (لا توجد قائمة تشغيل بعد)",
+  "toast.noGl": "تعذّر بدء سطح الفيديو: لا يوجد سياق عرض GL (انظر السجل)",
+  "toast.openFailed": "تعذّر فتح {path}: {error}",
+  "toast.playbackFailed": "تعذّر التشغيل: {error}"
+}

@@ -1,0 +1,21 @@
+{
+  "app.name": "Trình phát video",
+  "bar.fullscreen": "Toàn màn hình (f / F11)",
+  "bar.mute": "Tắt tiếng (m)",
+  "bar.speed": "Tốc độ",
+  "bar.volume": "Â lượng (↑/↓)",
+  "center.next": "Tệp / chương tiếp theo (>)",
+  "center.prev": "Tệp / chương trước (<)",
+  "dialog.open.title": "Mở phương tiện",
+  "drop.hint": "Thả vào đây để phát",
+  "header.close": "Đóng (Ctrl+Q)",
+  "header.open": "Mở phương tiện (Ctrl+O)",
+  "menu.fullscreen": "Toàn màn hình",
+  "menu.label": "Menu",
+  "menu.open": "Mở phương tiện…",
+  "menu.quit": "Thoát",
+  "toast.dndExtra": "Đang phát tệp đầu tiên trong số {count} tệp đã thả (chưa có danh sách phát)",
+  "toast.noGl": "Không khởi động được bề mặt video: không có ngữ cảnh kết xuất GL (xem nhật ký)",
+  "toast.openFailed": "Không thể mở {path}: {error}",
+  "toast.playbackFailed": "Phát lại thất bại: {error}"
+}

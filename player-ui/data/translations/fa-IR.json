@@ -1,0 +1,21 @@
+{
+  "app.name": "پخش‌کننده ویدیو",
+  "bar.fullscreen": "تمام‌صفحه (f / F11)",
+  "bar.mute": "بی‌صدا (m)",
+  "bar.speed": "سرعت",
+  "bar.volume": "میزان صدا (↑/↓)",
+  "center.next": "فایل / فصل بعدی (>)",
+  "center.prev": "فایل / فصل قبلی (<)",
+  "dialog.open.title": "باز کردن رسانه",
+  "drop.hint": "رها کنید تا پخش شود",
+  "header.close": "بستن (Ctrl+Q)",
+  "header.open": "باز کردن رسانه (Ctrl+O)",
+  "menu.fullscreen": "تمام‌صفحه",
+  "menu.label": "فهرست",
+  "menu.open": "باز کردن رسانه…",
+  "menu.quit": "خروج",
+  "toast.dndExtra": "در حال پخش نخستین فایل از {count} فایل رهاشده (هنوز فهرست پخش وجود ندارد)",
+  "toast.noGl": "سطح ویدیو شروع نشد: زمینه رندر GL موجود نیست (رویدادنامه را ببینید)",
+  "toast.openFailed": "باز کردن {path} ممکن نشد: {error}",
+  "toast.playbackFailed": "پخش ناموفق بود: {error}"
+}
