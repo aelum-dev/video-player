@@ -78,7 +78,7 @@ fn open_dropped(shared: &Shared, controls: &Controls, files: &[gtk::gio::File]) 
     };
     let source = crate::source_of(first);
     tracing::info!(%source, count = files.len(), "dropped files");
-    crate::open_source(shared, &source, true, 0.0);
+    crate::open_source(shared, &source, 0.0);
     if files.len() > 1 {
         let count = files.len().to_string();
         crate::toast(

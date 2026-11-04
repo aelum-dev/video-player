@@ -67,8 +67,10 @@ fn loads_a_file_and_reports_events() {
     assert!(duration.is_some(), "duration never reported");
 }
 
-/// The cold-start path: the first title a session opens is loaded paused, so
-/// the front-end's play button is the deliberate start.
+/// The engine's `autoplay=false` path: the title waits paused on its first
+/// frame and only `set_paused(false)` starts it. The app opens every named
+/// file playing now, but the seam's contract stays tested — and the playlist
+/// test below depends on a load that does not run on its own.
 #[test]
 fn a_title_opened_without_autoplay_waits_paused_on_its_first_frame() {
     let scratch = Scratch::new("paused");

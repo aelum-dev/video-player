@@ -1,6 +1,8 @@
 //! Video player — the GTK shell: application, actions, and the event pump.
 //!
 //! Opens files from the CLI or Ctrl+O and plays them through the core engine.
+//! A file that is named — by a file manager's `.desktop` `Exec=` line, the CLI,
+//! the chooser or a drop — starts playing at once.
 //! Started without files it loads nothing: the window opens black with the play
 //! button as the active control, and pressing it starts the last title the
 //! player had (`last_played`). The window itself (video surface with controls
@@ -55,9 +57,6 @@ struct Shared {
     controls: Rc<RefCell<Option<ui::Controls>>>,
     /// Keeps the palette watcher alive (dropping it stops the hot reload).
     theme: Rc<RefCell<Option<theme::Theme>>>,
-    /// Has this session opened a title yet? The first one starts paused (the
-    /// window opens on its play button); anything opened later plays at once.
-    opened_any: Rc<Cell<bool>>,
     /// The record read at startup: what the play button opens while nothing is
     /// loaded. Consumed by that press, and never used once a title is open.
     pending: Rc<RefCell<Option<LastPlayed>>>,
@@ -93,7 +92,6 @@ fn main() -> gtk::glib::ExitCode {
         toasts: Rc::new(RefCell::new(None)),
         controls: Rc::new(RefCell::new(None)),
         theme: Rc::new(RefCell::new(None)),
-        opened_any: Rc::new(Cell::new(false)),
         pending: Rc::new(RefCell::new(None)),
         resume_at: Rc::new(Cell::new(0.0)),
         last_saved: Rc::new(Cell::new(0)),
@@ -125,13 +123,15 @@ fn main() -> gtk::glib::ExitCode {
         let shared = shared.clone();
         move |app, files, _hint| {
             ensure_window(app, &shared);
-            // The first title of a session — files on the command line of a
-            // cold start — opens paused, so the window shows its play button
-            // instead of running. Files opened later play straight away.
-            let autoplay = shared.opened_any.get();
-            shared.opened_any.set(true);
+            // Files named for us to open — what Nautilus (or any file manager)
+            // does through the desktop entry's `Exec=video-player %U`, and what
+            // `video-player clip.mkv` does — play straight away: naming a file
+            // is the request to play it. No "first title of the session opens
+            // paused" exception: the single-instance application cannot tell a
+            // cold start from a file handed to an already-running player, so
+            // any such rule would apply at random.
             for file in files {
-                open_source(&shared, &source_of(file), autoplay, 0.0);
+                open_source(&shared, &source_of(file), 0.0);
             }
         }
     });
@@ -191,7 +191,7 @@ fn setup_actions(app: &adw::Application, shared: &Shared) {
                             local = ?file.path(),
                             "file chooser selection"
                         );
-                        open_source(&shared, &source_of(&file), true, 0.0);
+                        open_source(&shared, &source_of(&file), 0.0);
                     }
                 },
             );
@@ -333,20 +333,22 @@ pub(crate) fn source_of(file: &gtk::gio::File) -> String {
     }
 }
 
-/// Load a source. `autoplay` decides whether it starts playing or waits for
-/// the play button; `starts_at` is the position to jump to once it has loaded
-/// (0 = the beginning), and the position the last-played record keeps.
-pub(crate) fn open_source(shared: &Shared, path: &str, autoplay: bool, starts_at: f64) {
+/// Load a source and start it playing — naming a file is the request to play
+/// it. `starts_at` is the position to jump to once it has loaded (0 = the
+/// beginning), and the position the last-played record keeps.
+pub(crate) fn open_source(shared: &Shared, path: &str, starts_at: f64) {
     let starts_at = starts_at.max(0.0);
-    tracing::info!(path, autoplay, starts_at, "opening source");
+    tracing::info!(path, starts_at, "opening source");
     {
         let mut state = shared.state.borrow_mut();
         state.set_source(path);
         // Record the play state the engine is about to be told, so the button
         // shows the right shape before mpv's `pause` event arrives.
-        state.set_play_state(!autoplay);
+        state.set_play_state(false);
     }
-    if let Err(err) = shared.engine.open(path, autoplay) {
+    // Asking to play is not a no-op: mpv keeps `pause` across file changes, so
+    // a title opened after a paused one would otherwise inherit the pause.
+    if let Err(err) = shared.engine.open(path, true) {
         tracing::error!(%err, path, "open failed");
         let error = err.to_string();
         toast(
@@ -388,7 +390,7 @@ fn toggle_playback(shared: &Shared) {
             position = entry.position,
             "play: starting the last played title"
         );
-        open_source(shared, &entry.source, true, entry.position);
+        open_source(shared, &entry.source, entry.position);
         return;
     }
     let restart = shared.state.borrow().should_restart();
