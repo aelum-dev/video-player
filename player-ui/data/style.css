@@ -240,6 +240,27 @@ button.center-play:active {
     background: rgba(255, 255, 255, 0.15);
 }
 
+/* The prev/next buttons flanking the center play/pause. Like the center
+   button they float on the picture, not on a scrim, so they carry their own
+   ink and state language (the `.floating-bar` rules never reach them) — a
+   size step below the play button so it stays the obvious target. */
+button.center-skip {
+    min-height: 56px;
+    min-width: 56px;
+    padding: 0;
+    -gtk-icon-size: 28px;
+    color: #f6f6f6;
+    border-radius: 999px;
+}
+
+button.center-skip:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+button.center-skip:active {
+    background: rgba(255, 255, 255, 0.15);
+}
+
 /* Drag & drop feedback: while a file drag is over the window, frame the
    video with a dashed outline and say what the drop will do. It is an
    overlay child drawn over the video (a window-level CSS outline would be

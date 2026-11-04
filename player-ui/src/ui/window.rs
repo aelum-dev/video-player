@@ -136,20 +136,6 @@ fn build_playbar(shared: &Shared) -> (gtk::Revealer, PlayBar) {
     bar.add_css_class("floating-bar");
     bar.add_css_class("floating-playbar");
 
-    // Skip to the previous/next file in the directory; with no playlist to
-    // walk the core steps chapters instead (see `skip_target`). Chapter
-    // stepping also lives on Ctrl+Left/Right.
-    let prev_skip = flat_button(
-        "media-skip-backward-symbolic",
-        Some("app.skip-prev"),
-        "Previous file / chapter (<)",
-    );
-    let next_skip = flat_button(
-        "media-skip-forward-symbolic",
-        Some("app.skip-next"),
-        "Next file / chapter (>)",
-    );
-
     let time_label = gtk::Label::new(Some("0:00"));
     time_label.add_css_class("time-label");
     let duration_label = gtk::Label::new(Some("0:00"));
@@ -244,8 +230,6 @@ fn build_playbar(shared: &Shared) -> (gtk::Revealer, PlayBar) {
         "Fullscreen (f / F11)",
     );
 
-    bar.append(&prev_skip);
-    bar.append(&next_skip);
     bar.append(&time_label);
     bar.append(&seek);
     bar.append(&duration_label);
@@ -280,7 +264,8 @@ struct PlayBar {
 }
 
 /// The big play/pause button in the middle of the video (icon only, no
-/// background). It rides with
+/// background), with the prev/next skip buttons flanking it left and right.
+/// The row rides with
 /// the floating controls (see `Controls::set_revealed`): visible while the
 /// user is interacting or paused, faded out on idle. Its icon tracks the play
 /// state, and it starts as a play triangle — the player opens with nothing
@@ -292,8 +277,38 @@ fn build_center() -> (gtk::Revealer, gtk::Button) {
         .build();
     button.add_css_class("flat");
     button.add_css_class("center-play");
+
+    // Skip to the previous/next file in the directory; with no playlist to
+    // walk the core steps chapters instead (see `skip_target`). They sit
+    // beside the play button, not in the playbar: these are the reach-for-
+    // them-while-watching controls, and the center row is where the eyes
+    // already are. `<`/`>` keep the same actions.
+    //
+    // `valign: center` is not decoration: the row is as tall as the 92px
+    // play button, and a box stretches its children to fill vertically —
+    // the skip buttons' press box would be a 56x92 ellipse, not a circle.
+    let prev_skip = flat_button(
+        "media-skip-backward-symbolic",
+        Some("app.skip-prev"),
+        "Previous file / chapter (<)",
+    );
+    prev_skip.add_css_class("center-skip");
+    prev_skip.set_valign(gtk::Align::Center);
+    let next_skip = flat_button(
+        "media-skip-forward-symbolic",
+        Some("app.skip-next"),
+        "Next file / chapter (>)",
+    );
+    next_skip.add_css_class("center-skip");
+    next_skip.set_valign(gtk::Align::Center);
+
+    let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    row.append(&prev_skip);
+    row.append(&button);
+    row.append(&next_skip);
+
     let revealer = gtk::Revealer::new();
-    revealer.set_child(Some(&button));
+    revealer.set_child(Some(&row));
     revealer.set_transition_type(gtk::RevealerTransitionType::Crossfade);
     revealer.set_transition_duration(250);
     revealer.set_halign(gtk::Align::Center);
@@ -393,8 +408,9 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
     }
     window.add_controller(motion);
 
-    // Resting the pointer on a bar (or in a popover) must not hide it.
-    for bar in [&header, &playbar] {
+    // Resting the pointer on a bar, the center row, or in a popover must not
+    // hide it.
+    for bar in [&header, &playbar, &center] {
         let hover_motion = gtk::EventControllerMotion::new();
         {
             let on_enter = controls.clone();
