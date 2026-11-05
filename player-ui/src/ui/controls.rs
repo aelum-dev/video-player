@@ -1,5 +1,6 @@
 //! The widgets the event pump keeps in sync, the windowed/fullscreen mode
-//! switch, and the idle-hide state machine that fades the controls while
+//! switch, and the idle-hide state machine that fades the interface while the
+//! pointer is idle — the chrome bars while windowed, the floating bar while
 //! fullscreen.
 
 use std::cell::Cell;
@@ -72,8 +73,9 @@ pub struct Controls {
     /// the drop hint has the video to itself (see `set_drag_active`).
     pub(super) dragging: Rc<Cell<bool>>,
     pub(super) revealed: Rc<Cell<bool>>,
-    /// True while the window is fullscreen — the only mode where the
-    /// playback bar floats over the video and the idle-hide applies.
+    /// True while the window is fullscreen: the playback bar floats over the
+    /// video instead of framing it. The idle-hide applies in both modes — what
+    /// differs is which widgets carry the interface (see `apply_revealed`).
     pub(super) fullscreen: Rc<Cell<bool>>,
     pub(super) last_motion: Rc<Cell<i64>>,
     /// Last pointer position. Wayland re-sends the (unchanged) pointer
@@ -106,7 +108,6 @@ impl Controls {
             return;
         }
         self.fullscreen.set(on);
-        self.toolbar.set_reveal_top_bars(!on);
         if on {
             self.toolbar.remove(&self.playbar);
             self.playbar.remove_css_class("toolbar");
@@ -117,7 +118,6 @@ impl Controls {
                 button.add_css_class("osd");
             }
             self.fs_playbar.set_child(Some(&self.playbar));
-            self.fs_playbar.set_reveal_child(self.revealed.get());
         } else {
             self.fs_playbar.set_child(None::<&gtk::Widget>);
             self.playbar.remove_css_class("osd");
@@ -128,12 +128,30 @@ impl Controls {
                 button.add_css_class("flat");
             }
             self.toolbar.add_bottom_bar(&self.playbar);
-            self.poke();
+        }
+        // A mode change is user activity, and the new parent starts untouched:
+        // bring the interface up and push the state onto the widgets this mode
+        // uses. `poke` alone would skip it — the flag itself did not change.
+        self.poke();
+        self.apply_revealed();
+    }
+
+    /// Push the current reveal state onto the widgets that carry the interface
+    /// in this mode: both chrome bars while windowed, the floating bar (with
+    /// the header kept retracted) while fullscreen.
+    fn apply_revealed(&self) {
+        let on = self.revealed.get() && !self.dragging.get();
+        if self.fullscreen.get() {
+            self.toolbar.set_reveal_top_bars(false);
+            self.fs_playbar.set_reveal_child(on);
+        } else {
+            self.toolbar.set_reveal_top_bars(on);
+            self.toolbar.set_reveal_bottom_bars(on);
         }
     }
 
-    /// Show or fade the floating playback bar. Windowed, the bar is chrome
-    /// and has no revealer — only the fullscreen parent answers.
+    /// Show or fade the interface — the chrome bars while windowed, the
+    /// floating bar over the video while fullscreen.
     pub(super) fn set_revealed(&self, on: bool) {
         // While a file drag is over the window the controls are forced down:
         // the drop hint owns the screen. `set_drag_active(false)` brings them
@@ -144,7 +162,7 @@ impl Controls {
             return;
         }
         self.revealed.set(on);
-        self.fs_playbar.set_reveal_child(on);
+        self.apply_revealed();
     }
 
     /// A file drag entered (`on`) or left (`off`) the window. Hide the controls
@@ -174,15 +192,13 @@ impl Controls {
             || self.speed_button.is_active()
     }
 
-    /// Runs on the idle tick: fade out when the pointer has been still for a
-    /// while and nothing is being interacted with. Windowed, the controls are
-    /// chrome — there is nothing to fade. Stays up while paused —
-    /// that is when people reach for the controls.
+    /// Runs on the idle tick: fade the interface out when the pointer has been
+    /// still for a while and nothing is being interacted with — the chrome bars
+    /// while windowed, the floating bar while fullscreen. Playing or paused
+    /// makes no difference; nothing loaded does — that is the state the player
+    /// opens in, and the play button is the only control there.
     pub(super) fn idle_tick(&self, state: &PlaybackState) {
-        if !self.fullscreen.get() {
-            return;
-        }
-        if !self.revealed.get() || self.busy() || state.paused {
+        if !self.revealed.get() || self.busy() || state.source.is_none() {
             return;
         }
         if now_ms() - self.last_motion.get() < IDLE_HIDE_MS {
@@ -209,15 +225,11 @@ impl Controls {
             .set_icon_name(Self::play_icon(state.paused));
         self.play_button
             .set_icon_name(Self::play_icon(state.paused));
-        // The center row: in fullscreen it rides with the controls; windowed,
-        // the chrome bar owns playback and the big button is only the
-        // affordance over an empty or paused canvas.
-        let center_visible = if self.fullscreen.get() {
-            self.revealed.get()
-        } else {
-            state.paused || state.source.is_none()
-        };
-        self.center.set_reveal_child(center_visible);
+        // The center row rides with the interface in both modes. The one state
+        // where it must survive is "nothing loaded", and that is what
+        // `idle_tick` refuses to hide — so the play button the player opens
+        // with is never faded away.
+        self.center.set_reveal_child(self.revealed.get());
         self.time_label
             .set_text(&format::clock(state.position));
         self.duration_label

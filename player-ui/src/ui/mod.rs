@@ -2,12 +2,12 @@
 //!
 //! The window content is an `AdwToolbarView`: a real header bar on top, a
 //! real playback toolbar at the bottom, and between them a `gtk::Overlay`
-//! whose main child is the video surface. In fullscreen the chrome
-//! retracts and the same playback bar moves into the overlay as an `.osd`
-//! pill that fades out when the pointer has been idle, mpv-style. Every
-//! control acts through `player_core`'s engine trait — never on mpv
-//! directly. Files dragged onto the window open too (a `DropTarget` on the
-//! window; see [`dnd`]).
+//! whose main child is the video surface. The interface fades out when the
+//! pointer has been idle, mpv-style, in both modes: windowed that retracts
+//! the chrome bars, fullscreen the `.osd` pill the same playback bar moves
+//! into once the chrome is gone. Every control acts through `player_core`'s
+//! engine trait — never on mpv directly. Files dragged onto the window open
+//! too (a `DropTarget` on the window; see [`dnd`]).
 //!
 //! The modules follow the pieces of the window, not the GTK class hierarchy:
 //!

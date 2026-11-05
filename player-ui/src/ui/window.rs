@@ -7,6 +7,13 @@
 //! mode: the toolbar's bottom slot while windowed (theme chrome), and an
 //! `.osd` pill inside the overlay while fullscreen (over the video, fading
 //! on idle). See `Controls::set_fullscreen`.
+//!
+//! The interface hides on idle in **both** modes and whether or not something
+//! is playing: the idle tick retracts both chrome bars (`AdwToolbarView`'s
+//! animated reveal properties) so the video takes the whole window, and any
+//! pointer or key activity brings them back. The one state it never hides is an
+//! empty player — with no title loaded the play button is the only control.
+//! See `Controls::idle_tick` for what counts as idle.
 
 use std::cell::Cell;
 use std::rc::Rc;
@@ -284,8 +291,9 @@ struct PlayBar {
 /// The big play/pause button in the middle of the video, with the
 /// prev/next skip buttons flanking it. It is an `.osd .circular` button —
 /// libadwaita's own over-content control (dark disc, white ink, its own
-/// hover/press states) — and rides with the floating controls: visible
-/// while paused or nothing is loaded, faded on idle while playing.
+/// hover/press states) — and rides with the interface: faded whenever that is,
+/// and the only control left standing when nothing is loaded (the idle-hide
+/// never hides that state — see `Controls::idle_tick`).
 fn build_center() -> (gtk::Revealer, gtk::Button) {
     let button = gtk::Button::builder()
         .icon_name(Controls::play_icon(true))
@@ -366,7 +374,8 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
     let video = VideoArea::new(shared.engine.clone());
 
     let toolbar = adw::ToolbarView::new();
-    toolbar.add_top_bar(&build_header());
+    let header = build_header();
+    toolbar.add_top_bar(&header);
     let (playbar, bar) = build_playbar(shared);
     toolbar.add_bottom_bar(&playbar);
 
@@ -461,10 +470,14 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
     }
     window.add_controller(motion);
 
-    // Resting the pointer on the floating bar, the center row, or in a
-    // popover must not hide it. (The header is chrome now — it never fades,
-    // so it needs no hover controller.)
-    let hover_targets: Vec<gtk::Widget> = vec![playbar.clone().upcast(), center.clone().upcast()];
+    // Resting the pointer on either bar, the center row, or in a popover must
+    // not hide it — the interface does not vanish out from under a hand that is
+    // already reaching for it.
+    let hover_targets: Vec<gtk::Widget> = vec![
+        header.upcast(),
+        playbar.clone().upcast(),
+        center.clone().upcast(),
+    ];
     for bar in &hover_targets {
         let hover_motion = gtk::EventControllerMotion::new();
         {
@@ -481,6 +494,19 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
         }
         bar.add_controller(hover_motion);
     }
+
+    // Keyboard activity counts too: with the chrome able to hide while windowed,
+    // a key that changes playback (pause, a seek, a skip) has to bring the bar
+    // back — otherwise the only feedback for the key is the video itself.
+    let keys = gtk::EventControllerKey::new();
+    {
+        let controls = controls.clone();
+        keys.connect_key_pressed(move |_, _, _, _| {
+            controls.poke();
+            glib::Propagation::Proceed
+        });
+    }
+    window.add_controller(keys);
 
     // Idle check: a 500 ms tick is cheaper than re-arming a source on every
     // motion event.
