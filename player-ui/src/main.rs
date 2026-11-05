@@ -15,6 +15,7 @@
 //! threads).
 
 mod format;
+mod hyprland;
 mod i18n;
 mod theme;
 mod ui;
@@ -72,6 +73,9 @@ struct Shared {
     resume_at: Rc<Cell<f64>>,
     /// When the last-played record was last written.
     last_saved: Rc<Cell<i64>>,
+    /// This window's pinned state as we last knew it — the compositor's, mirrored
+    /// here so the bar's pin button can light up (`set_pin_state`).
+    pinned: Rc<Cell<bool>>,
 }
 
 fn main() -> gtk::glib::ExitCode {
@@ -102,6 +106,7 @@ fn main() -> gtk::glib::ExitCode {
         pending: Rc::new(RefCell::new(None)),
         resume_at: Rc::new(Cell::new(0.0)),
         last_saved: Rc::new(Cell::new(0)),
+        pinned: Rc::new(Cell::new(false)),
     };
 
     app.connect_startup({
@@ -303,6 +308,35 @@ fn setup_actions(app: &adw::Application, shared: &Shared) {
     });
     app.add_action(&fullscreen);
 
+    // Pin the window: the bar's picture-in-picture control, and a Hyprland window
+    // state rather than a GTK property (see `hyprland`). The action stays
+    // parameterless on purpose: a widget bound to a boolean-*stateful* action is
+    // refused by GTK ("parameter type b, target type NULL") and comes up
+    // insensitive. The state we show is our mirror of the compositor's, kept in
+    // step by the watcher, and `set_pin_state` is the only thing that lights the
+    // button.
+    let pin = gtk::gio::SimpleAction::new("pin", None);
+    pin.connect_activate({
+        let shared = shared.clone();
+        move |_, _| {
+            let want = !shared.pinned.get();
+            // The button shows what the compositor has, not what we asked for: a
+            // refused request (a window that does not qualify to be pinned) must
+            // leave it dark.
+            let on = hyprland::set_pin(want).unwrap_or(want);
+            set_pin_state(&shared, on);
+        }
+    });
+    app.add_action(&pin);
+    hyprland::watch_pin_state({
+        let shared = shared.clone();
+        move |pinned| {
+            if shared.pinned.get() != pinned {
+                set_pin_state(&shared, pinned);
+            }
+        }
+    });
+
     let quit = gtk::gio::SimpleAction::new("quit", None);
     quit.connect_activate({
         let app = app.clone();
@@ -445,6 +479,16 @@ fn toggle_playback(shared: &Shared) {
     };
     if let Err(err) = result {
         tracing::warn!(%err, "play/pause failed");
+    }
+}
+
+/// Mirror the compositor's pin state: remember it and light the bar's button.
+/// Called with what we are about to ask for, and again with what the event
+/// watcher measured — so the button never shows a state Hyprland does not have.
+fn set_pin_state(shared: &Shared, on: bool) {
+    shared.pinned.set(on);
+    if let Some(controls) = shared.controls.borrow().as_ref() {
+        controls.set_pin(on);
     }
 }
 

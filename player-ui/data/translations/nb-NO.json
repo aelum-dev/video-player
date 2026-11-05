@@ -3,6 +3,7 @@
   "app.name": "Videoer",
   "bar.fullscreen": "Fullskjerm (f / F11)",
   "bar.mute": "Demp (m)",
+  "bar.pin": "Fest dette vinduet øverst",
   "bar.playPause": "Spill av / pause (mellomrom)",
   "bar.speed": "Fart",
   "bar.volume": "Volum (↑/↓)",

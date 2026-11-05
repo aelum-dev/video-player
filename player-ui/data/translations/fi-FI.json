@@ -3,6 +3,7 @@
   "app.name": "Videot",
   "bar.fullscreen": "Koko näyttö (f / F11)",
   "bar.mute": "Mykennä (m)",
+  "bar.pin": "Kiinnitä tämä ikkuna ylimmäksi",
   "bar.playPause": "Toista / tauko (välilyönti)",
   "bar.speed": "Toistonopeus",
   "bar.volume": "Äänenvoimakkuus (↑/↓)",

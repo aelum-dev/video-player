@@ -3,6 +3,7 @@
   "app.name": "Videos",
   "bar.fullscreen": "Vollbild (f / F11)",
   "bar.mute": "Stummschalten (m)",
+  "bar.pin": "Dieses Fenster oben anheften",
   "bar.playPause": "Wiedergabe / Pause (Leertaste)",
   "bar.speed": "Geschwindigkeit",
   "bar.volume": "Lautstärke (↑/↓)",

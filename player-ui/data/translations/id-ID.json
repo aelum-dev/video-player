@@ -3,6 +3,7 @@
   "app.name": "Video",
   "bar.fullscreen": "Layar penuh (f / F11)",
   "bar.mute": "Bisukan (m)",
+  "bar.pin": "Sematkan jendela ini di atas",
   "bar.playPause": "Putar / jeda (spasi)",
   "bar.speed": "Kecepatan",
   "bar.volume": "Volume (↑/↓)",

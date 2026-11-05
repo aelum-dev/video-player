@@ -226,6 +226,20 @@ fn build_playbar(shared: &Shared) -> (gtk::Box, PlayBar) {
     speed_box.append(&speed_row);
     speed_button.set_popover(Some(&gtk::Popover::builder().child(&speed_box).build()));
 
+    // Pin the window on top (a Hyprland window state — see the `hyprland`
+    // module). It sits with the fullscreen button because both are window-mode
+    // controls: the player as a picture-in-picture while another window is the
+    // work. A ToggleButton because `app.pin` carries a boolean state — GTK keeps
+    // the button's checked state in step with the action, and the theme draws it;
+    // `.aelum-pin` is the hook style.css gives it the accent on.
+    let pin = gtk::ToggleButton::builder()
+        .icon_name("lock-symbolic")
+        .action_name("app.pin")
+        .tooltip_text(i18n::t("bar.pin"))
+        .build();
+    pin.add_css_class("flat");
+    pin.add_css_class("aelum-pin");
+
     let fullscreen = flat_button(
         "view-fullscreen-symbolic",
         Some("app.fullscreen"),
@@ -240,6 +254,7 @@ fn build_playbar(shared: &Shared) -> (gtk::Box, PlayBar) {
     bar.append(&duration_label);
     bar.append(&volume_button);
     bar.append(&speed_button);
+    bar.append(&pin);
     bar.append(&fullscreen);
 
     // Every button whose style class flips with the mode. The menu buttons
@@ -251,6 +266,7 @@ fn build_playbar(shared: &Shared) -> (gtk::Box, PlayBar) {
         next.upcast(),
         volume_button.clone().upcast(),
         speed_button.clone().upcast(),
+        pin.clone().upcast(),
         fullscreen.clone().upcast(),
     ];
 
@@ -267,6 +283,7 @@ fn build_playbar(shared: &Shared) -> (gtk::Box, PlayBar) {
             volume_scale_changed,
             speed_button,
             speed_scale,
+            pin_button: pin,
             fullscreen_button: fullscreen,
         },
     )
@@ -285,6 +302,7 @@ struct PlayBar {
     volume_scale_changed: gtk::glib::SignalHandlerId,
     speed_button: gtk::MenuButton,
     speed_scale: gtk::Scale,
+    pin_button: gtk::ToggleButton,
     fullscreen_button: gtk::Button,
 }
 
@@ -407,6 +425,7 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
         speed_button: bar.speed_button,
         speed_scale: bar.speed_scale,
         fullscreen_button: bar.fullscreen_button,
+        pin_button: bar.pin_button,
         center: center.clone(),
         center_button: center_button.clone(),
         volume_osd: volume_osd.clone(),

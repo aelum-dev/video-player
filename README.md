@@ -15,6 +15,8 @@ swapped, and the reason the whole pipeline is testable without a display.
 - A real GNOME window: header bar with the media title and a primary menu, playback controls
   in a bottom toolbar — play/pause, seek bar with chapter ticks, volume, speed presets,
   fullscreen. In fullscreen the toolbar floats over the video and fades when idle.
+- A pin button (the lock icon) asks Hyprland to keep the window on top across
+  workspaces — the player as a picture-in-picture while another window is the work.
 - An About dialog (`AdwAboutDialog`) behind the header's info button.
 - Drop a file on the window to open it; the window moves by dragging its header bar.
 - Opening one file builds a playlist from its directory, so `<` / `>` walk to the next title.

@@ -3,6 +3,7 @@
   "app.name": "Vídeos",
   "bar.fullscreen": "Pantalla completa (f / F11)",
   "bar.mute": "Silencia (m)",
+  "bar.pin": "Fixa aquesta finestra a sobre",
   "bar.playPause": "Reprodueix / pausa (Espai)",
   "bar.speed": "Velocitat",
   "bar.volume": "Volum (↑/↓)",

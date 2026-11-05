@@ -3,6 +3,7 @@
   "app.name": "影片",
   "bar.fullscreen": "全螢幕 (f / F11)",
   "bar.mute": "靜音 (m)",
+  "bar.pin": "將此視窗置頂",
   "bar.playPause": "播放 / 暫停 (空格)",
   "bar.speed": "速度",
   "bar.volume": "音量 (↑/↓)",

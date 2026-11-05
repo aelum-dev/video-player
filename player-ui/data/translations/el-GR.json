@@ -3,6 +3,7 @@
   "app.name": "Βίντεο",
   "bar.fullscreen": "Πλήρης οθόνη (f / F11)",
   "bar.mute": "Σίγαση (m)",
+  "bar.pin": "Καρφίτσωσε αυτό το παράθυρο πάνω",
   "bar.playPause": "Αναπαραγωγή / παύση (Space)",
   "bar.speed": "Ταχύτητα",
   "bar.volume": "Ένταση ήχου (↑/↓)",

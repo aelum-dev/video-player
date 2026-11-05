@@ -3,6 +3,7 @@
   "app.name": "Videolar",
   "bar.fullscreen": "Tam Ekran (f / F11)",
   "bar.mute": "Sessize al (m)",
+  "bar.pin": "Bu pencereyi diğerlerinin üstüne sabitle",
   "bar.playPause": "Oynat / duraklat (boşluk)",
   "bar.speed": "Hız",
   "bar.volume": "Ses Düzeyi (↑/↓)",

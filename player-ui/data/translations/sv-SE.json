@@ -3,6 +3,7 @@
   "app.name": "Videor",
   "bar.fullscreen": "Helskärm (f / F11)",
   "bar.mute": "Ljudlös (m)",
+  "bar.pin": "Fäst det här fönstret överst",
   "bar.playPause": "Spela upp / paus (mellanslag)",
   "bar.speed": "Hastighet",
   "bar.volume": "Volym (↑/↓)",

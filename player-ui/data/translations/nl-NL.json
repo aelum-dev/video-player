@@ -3,6 +3,7 @@
   "app.name": "Video's",
   "bar.fullscreen": "Beeldschermvullend (f / F11)",
   "bar.mute": "Dempen (m)",
+  "bar.pin": "Dit venster bovenaan vastzetten",
   "bar.playPause": "Afspelen / pauzeren (spatiebalk)",
   "bar.speed": "Snelheid",
   "bar.volume": "Volume (↑/↓)",

@@ -3,6 +3,7 @@
   "app.name": "Vidéos",
   "bar.fullscreen": "Plein écran (f / F11)",
   "bar.mute": "Couper le son (m)",
+  "bar.pin": "Épingler cette fenêtre au premier plan",
   "bar.playPause": "Lecture / pause (Espace)",
   "bar.speed": "Vitesse",
   "bar.volume": "Volume (↑/↓)",

@@ -64,6 +64,26 @@ window.background.player-window {
     font-variant-numeric: tabular-nums;
 }
 
+/* The pin button while the window is pinned. Pinning is a state the window is
+   in, so the control stays marked rather than flashing — and only the glyph
+   takes the accent: the button keeps the flat look of its neighbours, because
+   the theme's own checked fill (a `currentColor` wash + an inset border) says
+   "pressed", not "pinned". Symbolic icons are drawn in the style's `color`, so
+   setting it on the button is what colors the lines; `@accent_bg_color` is the
+   palette's accent, which inside `.osd` the theme has already swapped for its
+   over-video one — the same rule reads on chrome and over any picture. */
+button.aelum-pin:checked {
+    background: none;
+    box-shadow: none;
+    color: @accent_bg_color;
+}
+
+/* Hover still has to answer: the rule above wins the tie against the theme's own
+   `flat:checked:hover` fill, so the tint is restated here, in the accent. */
+button.aelum-pin:checked:hover {
+    background: alpha(currentColor, 0.1);
+}
+
 /* Big play/pause in the middle of the video and the skip buttons flanking
    it: `.osd .circular` buttons — libadwaita's over-content control, dark
    disc and hover/press states included. Only the sizes are ours: the play

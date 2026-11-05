@@ -3,6 +3,7 @@
   "app.name": "ビデオ",
   "bar.fullscreen": "全画面表示 (f / F11)",
   "bar.mute": "ミュート (m)",
+  "bar.pin": "このウィンドウを最前面に固定",
   "bar.playPause": "再生 / 一時停止 (スペース)",
   "bar.speed": "再生速度",
   "bar.volume": "音量 (↑/↓)",

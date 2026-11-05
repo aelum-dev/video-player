@@ -3,6 +3,7 @@
   "app.name": "비디오",
   "bar.fullscreen": "전체 화면 (f / F11)",
   "bar.mute": "음소거 (m)",
+  "bar.pin": "이 창을 항상 위에 고정",
   "bar.playPause": "재생 / 일시 정지 (Space)",
   "bar.speed": "재생 속도",
   "bar.volume": "음량 (↑/↓)",

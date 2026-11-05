@@ -115,6 +115,21 @@ before trusting a version-specific claim.
   via `AdwDialogExt::present` — the gtk prelude's `PopoverExt::present`
   shadows the name, import `libadwaita::prelude::AdwDialogExt` explicitly.
 
+### Hyprland-side additions (Hyprland 0.57, measured on this box)
+- Dispatchers are Lua: the form is
+  `hyprctl dispatch "hl.dsp.window.pin({ action = \"toggle\" })"` — the old bare
+  names are gone (`hyprctl dispatchers pin` errors with "expected a dispatcher").
+  Toggle-style dispatchers take `{ action = "toggle"|"on"|"off" }` (an empty
+  table means toggle) and an optional `window = "address:0x…"`; without it the
+  target is the active window, which is the right default for a button inside
+  that window. `hyprctl clients -j` reports the result (`pinned`, `floating`).
+- Icon names resolve against the **user's** icon theme (Fluent-dark on Aelum),
+  with Adwaita as GTK's fallback — so a name is only as good as the theme that
+  has it: `lock-symbolic` exists in Fluent and in Breeze but **not** in Adwaita,
+  and an app that asks for it gets the broken-image icon on a stock GNOME box.
+  Settle it with `Gtk.IconTheme.has_icon()` (a five-line `gi` probe) or a screen
+  capture, never by assumption.
+
 ### Scroll / volume-OSD additions (gtk4-rs 0.11 / GTK 4.24)
 - `EventControllerScrollFlags` has **no SMOOTH flag** (that was GTK3).
   Without `DISCRETE` the controller receives wheel notches (dy = ±1 per

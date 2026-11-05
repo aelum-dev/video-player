@@ -3,6 +3,7 @@
   "app.name": "Videos",
   "bar.fullscreen": "Fullscreen (f / F11)",
   "bar.mute": "Mute (m)",
+  "bar.pin": "Pin this window on top",
   "bar.playPause": "Play / pause (space)",
   "bar.speed": "Speed",
   "bar.volume": "Volume (↑/↓)",

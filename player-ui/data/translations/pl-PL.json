@@ -3,6 +3,7 @@
   "app.name": "Filmy",
   "bar.fullscreen": "Pełny ekran (f / F11)",
   "bar.mute": "Wyciszenie (m)",
+  "bar.pin": "Przypnij to okno nad innymi",
   "bar.playPause": "Odtwarzaj / pauza (spacja)",
   "bar.speed": "Prędkość",
   "bar.volume": "Głośność (↑/↓)",

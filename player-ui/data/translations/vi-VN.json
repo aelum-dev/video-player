@@ -3,6 +3,7 @@
   "app.name": "Video",
   "bar.fullscreen": "Toàn màn hình (f / F11)",
   "bar.mute": "Tắt tiếng (m)",
+  "bar.pin": "Ghim cửa sổ này lên trên cùng",
   "bar.playPause": "Phát / tạm dừng (space)",
   "bar.speed": "Tốc độ",
   "bar.volume": "Â lượng (↑/↓)",

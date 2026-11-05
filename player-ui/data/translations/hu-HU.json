@@ -3,6 +3,7 @@
   "app.name": "Videók",
   "bar.fullscreen": "Teljes képernyő (f / F11)",
   "bar.mute": "Némítás (m)",
+  "bar.pin": "Ablak felülre rögzítése",
   "bar.playPause": "Lejátszás / szünet (szóköz)",
   "bar.speed": "Sebesség",
   "bar.volume": "Hangerő (↑/↓)",

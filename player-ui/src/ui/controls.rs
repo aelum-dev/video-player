@@ -52,6 +52,11 @@ pub struct Controls {
     pub(super) speed_button: gtk::MenuButton,
     pub(super) speed_scale: gtk::Scale,
     pub(super) fullscreen_button: gtk::Button,
+    /// The pin control. Its checked state is the app's mirror of Hyprland's
+    /// window state, pushed by `set_pin` — not GTK's own action binding, which
+    /// refuses a boolean-stateful action on a plain button and leaves it
+    /// insensitive (see the `app.pin` action in main.rs).
+    pub(super) pin_button: gtk::ToggleButton,
     /// Big play/pause button (`.osd .circular`) floating in the middle of
     /// the video; `refresh` owns its visibility (see there).
     pub(super) center: gtk::Revealer,
@@ -205,6 +210,14 @@ impl Controls {
             return;
         }
         self.set_revealed(false);
+    }
+
+    /// Light the pin control to match the compositor's state. A `ToggleButton`
+    /// because the theme draws the checked state for us (style.css gives it the
+    /// accent, in chrome and over video alike); nothing here reads the button
+    /// back — the state it shows comes from Hyprland, never from the click.
+    pub fn set_pin(&self, on: bool) {
+        self.pin_button.set_active(on);
     }
 
     /// Draw chapter ticks on the seek slider.

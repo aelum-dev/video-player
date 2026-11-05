@@ -3,6 +3,7 @@
   "app.name": "Video",
   "bar.fullscreen": "Schermo intero (f / F11)",
   "bar.mute": "Disattiva l’audio (m)",
+  "bar.pin": "Fissa questa finestra in primo piano",
   "bar.playPause": "Riproduci / pausa (spazio)",
   "bar.speed": "Velocità",
   "bar.volume": "Volume (↑/↓)",

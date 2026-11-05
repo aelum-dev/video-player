@@ -3,6 +3,7 @@
   "app.name": "Видео",
   "bar.fullscreen": "Цял екран (f / F11)",
   "bar.mute": "Без звук (m)",
+  "bar.pin": "Закрепи този прозорец отгоре",
   "bar.playPause": "Пускане / пауза (Space)",
   "bar.speed": "Скорост",
   "bar.volume": "Гръмкост (↑/↓)",
