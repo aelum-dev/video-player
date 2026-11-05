@@ -14,13 +14,13 @@
 //!   to need an app restart. We mirror it into a provider we own and reload
 //!   that when the directory changes; the palette and the chrome variant come
 //!   from the same DMS switch, so they stay in step.
-//! * **The controls over the video** — pure app CSS in `data/style.css`,
-//!   and deliberately NOT palette-driven: black scrims and white ink in
-//!   both variants (a light scrim over arbitrary footage is fog — the
-//!   "light mode sucks" regression). Only the seek fill takes a palette
-//!   name (`@accent_bg_color`), the one color that reads over video in
-//!   any variant. They sit on video rather than on chrome, which is why
-//!   they are the app's own rules and not libadwaita's widgets.
+//! * **The controls over the video** — the fullscreen playback pill, the
+//!   center play row, the volume OSD and the drop hint wear libadwaita's
+//!   own `.osd` style class: dark shell, white ink and the over-video
+//!   accent are all theme-drawn. `data/style.css` adds only shape and
+//!   sizes for those, plus two translucent troughs that must stay visible
+//!   over any picture. The windowed chrome (header bar, bottom toolbar) is
+//!   plain libadwaita and gets no app rules at all.
 //!
 //! SIGHUP is ignored — see [`ignore_hangup`].
 

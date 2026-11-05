@@ -94,6 +94,27 @@ before trusting a version-specific claim.
 - `WidgetExt::compute_bounds(&other)` returns a **graphene Rect** (f32), not a
   `gdk::Rectangle` — no `contains()`, compare bounds manually.
 
+### GNOME-chrome additions (libadwaita 1.10 / 0.9 bindings, 2026-11-05)
+- `AdwToolbarView` moves a bar between chrome and overlay at runtime:
+  `remove(&bar)` + `Revealer::set_child(Some(&bar))` in, `set_child(None)` +
+  `add_bottom_bar(&bar)` out — one widget set, all signal wiring survives
+  reparenting. A `Gtk::Box` used as a bar needs the `.toolbar` style class
+  itself; `set_reveal_top_bars(false)` retracts the header for fullscreen.
+- Toolbar bars ARE titlebars: window controls and drag-to-move come from
+  libadwaita — the hand-rolled `gdk::Toplevel::begin_move` header-drag was
+  a workaround for a window that had none and is gone.
+- `.osd` is a first-class theme scope (settled from the compiled stylesheet
+  of /usr/lib/libadwaita-1.so): the container gets a dark translucent shell
+  + white ink and flips `--accent-bg-color` to white/75% (its over-video
+  accent — scale fills and LevelBar blocks follow it automatically);
+  `button.osd` and `menubutton.osd > button` carry their own dark fill and
+  hover/active/checked states, so over-video buttons need no app CSS.
+- The theme's scale knob is 20 px (`scale > trough > slider` min-width) —
+  the seek click-to-position mapping (`KNOB_HALF_PX`) follows that.
+- `AdwAboutDialog` (libadwaita 1.5+): fields only, it draws itself; present
+  via `AdwDialogExt::present` — the gtk prelude's `PopoverExt::present`
+  shadows the name, import `libadwaita::prelude::AdwDialogExt` explicitly.
+
 ### Scroll / volume-OSD additions (gtk4-rs 0.11 / GTK 4.24)
 - `EventControllerScrollFlags` has **no SMOOTH flag** (that was GTK3).
   Without `DISCRETE` the controller receives wheel notches (dy = ±1 per

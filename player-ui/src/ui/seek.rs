@@ -30,9 +30,9 @@ const SEEK_COMMIT_MS: u64 = 350;
 /// covering mpv's async seek latency so the knob never snaps back to the stale
 /// position for a frame or two.
 const SEEK_SETTLE_MS: i64 = 400;
-/// Half of the seek knob (38 px in style.css): click-to-position maps the
-/// track between the knob's edge stops.
-const KNOB_HALF_PX: f64 = 19.0;
+/// Half of the theme's seek knob (20 px `min-width` on `scale > trough >
+/// slider`): click-to-position maps the track between the knob's edge stops.
+const KNOB_HALF_PX: f64 = 10.0;
 
 /// The pressed pixel (already in the slider's own coordinate space) as a
 /// 0..=1 fraction of the track. `None` when the slider is too narrow to map.
@@ -186,13 +186,13 @@ pub(super) fn attach(scale: &gtk::Scale, engine: &Arc<MpvEngine>) -> SeekHandle 
 mod tests {
     use super::*;
 
-    // A 1000 px slider: the knob centre can travel 19..=981, so the midpoint
-    // of the track is x = 19 + 962/2 = 500.
+    // A 1000 px slider: the knob centre can travel 10..=990, so the midpoint
+    // of the track is x = 10 + 980/2 = 500.
     #[test]
     fn click_to_position_maps_the_track_between_the_knob_stops() {
-        assert_eq!(click_fraction(19.0, 1000.0, false), Some(0.0));
+        assert_eq!(click_fraction(10.0, 1000.0, false), Some(0.0));
         assert_eq!(click_fraction(500.0, 1000.0, false), Some(0.5));
-        assert_eq!(click_fraction(981.0, 1000.0, false), Some(1.0));
+        assert_eq!(click_fraction(990.0, 1000.0, false), Some(1.0));
         // Presses past the stops clamp instead of running off the adjustment.
         assert_eq!(click_fraction(0.0, 1000.0, false), Some(0.0));
         assert_eq!(click_fraction(1200.0, 1000.0, false), Some(1.0));
@@ -200,9 +200,9 @@ mod tests {
 
     #[test]
     fn an_rtl_slider_seeks_from_the_right_edge() {
-        assert_eq!(click_fraction(981.0, 1000.0, true), Some(0.0));
+        assert_eq!(click_fraction(990.0, 1000.0, true), Some(0.0));
         assert_eq!(click_fraction(500.0, 1000.0, true), Some(0.5));
-        assert_eq!(click_fraction(19.0, 1000.0, true), Some(1.0));
+        assert_eq!(click_fraction(10.0, 1000.0, true), Some(1.0));
     }
 
     #[test]

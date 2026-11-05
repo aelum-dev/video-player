@@ -1,27 +1,19 @@
 /* Video player application styles.
  *
- * This file styles what floats *over the video*: the header and playbar
- * scrims, the center button, the sliders. The chrome - menus, popovers,
- * dialogs - is left to libadwaita, which already follows the system
- * dark/light setting and the user's palette (mirrored + hot-reloaded by
- * theme.rs).
+ * Everything that is chrome — the header bar, the bottom playback toolbar,
+ * their menus, popovers and dialogs — is plain libadwaita and gets no rule
+ * here. It follows the system dark/light setting and the user's palette on
+ * its own (mirrored + hot-reloaded by theme.rs), and the playback bar
+ * carries the `.toolbar` class while it is chrome, so the theme sizes it.
  *
- * The overlay over the video is deliberately ALWAYS dark - black scrims,
- * white ink - in both variants, like every other player (mpv's own OSD,
- * IINA, YouTube). A scrim over video shades arbitrary picture content,
- * and only a dark one disappears into it: a palette-driven light scrim
- * lifts dark footage to grey and the fade region milks the film itself
- * (that was the "light mode sucks" regression - the bg/fg pair keeps the
- * overlay legible *against itself*, but a scrim's real contrast partner
- * is the picture, not the ink). The one palette color that survives over
- * video is the accent, used for the seek fill over a light trough -
- * legible whatever hue the palette gives it, dark variant or light.
- *
- * To stay readable over bright full-frame video, the header and playbar
- * carry a fade-out gradient that reaches beyond the controls into the
- * picture (the extra padding below/above the bars is the fade region).
- * The falloff is multi-stop and curved on purpose: a linear ramp reads
- * as a hard band.
+ * What remains is only what floats *over the video*: the fullscreen
+ * playback pill, the center play row, the volume OSD and the drop hint.
+ * Their dark shells and white ink come from libadwaita's own `.osd`
+ * style class — the HIG's answer for controls over content, the same one
+ * Loupe and GNOME's own players use — and inside `.osd` the theme flips
+ * the accent to its over-video variant on its own. The rules below add
+ * only the two things the theme cannot know about this window: shape
+ * (radii, insets) and touch-sized targets.
  */
 
 /* The video letterbox: mpv clears the FBO with alpha 0 outside the frame, so
@@ -36,302 +28,93 @@ window.background.player-window {
     background: black;
 }
 
-/* Controls floating over the video. The extra bottom/top padding is the
-   gradient's fade region: the scrim reaches into the video, not just
-   behind the buttons. */
+/* The fullscreen playback bar: an `.osd` Box — the theme draws the dark
+   translucent pill and the white ink. Shape and inset only. */
 .floating-bar {
-    padding: 12px 16px;
+    margin: 16px;
+    padding: 8px 14px;
+    border-radius: 24px;
 }
 
-.floating-header {
-    padding-bottom: 100px;
-    background-image: linear-gradient(
-        to bottom,
-        alpha(black, 0.75),
-        alpha(black, 0.6) 25%,
-        alpha(black, 0.42) 45%,
-        alpha(black, 0.26) 60%,
-        alpha(black, 0.13) 75%,
-        alpha(black, 0.04) 90%,
-        alpha(black, 0)
-    );
-}
-
-.floating-playbar {
-    padding: 100px 20px 16px;
-    background-image: linear-gradient(
-        to top,
-        alpha(black, 0.75),
-        alpha(black, 0.6) 25%,
-        alpha(black, 0.42) 45%,
-        alpha(black, 0.26) 60%,
-        alpha(black, 0.13) 75%,
-        alpha(black, 0.04) 90%,
-        alpha(black, 0)
-    );
-}
-
-/* White ink on the dark scrim, in both variants: the overlay sits on video,
-   not on chrome, and video can be any color the film wants to be. */
-.floating-bar button,
-.floating-bar label {
-    color: #f6f6f6;
-}
-
-/* Hit sizes for the bar's own buttons. The `menubutton.flat > button` leg
-   reaches the drawn inner button of the volume/speed/"..." controls: their
-   classes (the .flat included) sit on the `menubutton` wrapper node, not on
-   the button node (red-border probes; the fact is in api-notes). The child
-   combinator on that leg is what keeps these sizes from leaking INTO the
-   attached popovers — the popover node hangs off the inner button, so a
-   descendant leg inflated every popover control into a 44/58px, 1.1em
-   monster: the oversized dropdowns. */
-.floating-bar button.flat,
-.floating-bar menubutton.flat > button {
+/* Touch-sized targets over video, one step above the chrome toolbar's
+   theme-sized ones. The `menubutton.osd > button` leg reaches the drawn
+   inner button of the volume/speed controls: their classes (the .osd
+   included) sit on the `menubutton` wrapper node, not on the button node
+   (red-border probes; the fact is in api-notes). The child combinator on
+   that leg is what keeps these sizes from leaking INTO the attached
+   popovers — the popover node hangs off the inner button. */
+.floating-bar button.osd,
+.floating-bar menubutton.osd > button {
     min-height: 44px;
     min-width: 44px;
     -gtk-icon-size: 24px;
-}
-
-/* Hover/press/checked fills are drawn as the button node's background, and
-   the corner radius shapes that box: a full pill at every size (999px
-   clamps to half the height, like the seek sliders). */
-.floating-bar button.flat,
-.floating-bar menubutton.flat > button {
     border-radius: 999px;
 }
 
-/* Press, not hover, is the moment that earns the filled box: a control
-   lighting up under the pointer alone reads as "already chosen" over the
-   video (the old inverted look), so hover stays a faint wash and the
-   click gets the strong one. The :active rule must come after :hover —
-   both match while a press is held (same specificity, later wins). */
-.floating-bar button.flat:hover,
-.floating-bar menubutton.flat > button:hover {
-    background: rgba(255, 255, 255, 0.06);
+/* The seek trough over video: the theme tunes a trough for chrome, a
+   translucent light one stays visible over any picture. The fill and the
+   knob keep the theme's colors — inside `.osd` the accent is libadwaita's
+   own over-video white, legible on any film. */
+.floating-bar scale trough {
+    background-color: alpha(white, 0.15);
 }
 
-.floating-bar button.flat:active,
-.floating-bar menubutton.flat > button:active {
-    background: rgba(255, 255, 255, 0.15);
-}
-
-/* The menu buttons (volume/speed/menu) stay :checked for as long as their
-   popover is open. Left to the theme that shows only a lighter outline-ish
-   wash, which reads as the press box "fading" the moment the mouse is
-   released — so keep the exact press fill while the popover is up. */
-.floating-bar button.flat:checked,
-.floating-bar menubutton.flat > button:checked {
-    background: rgba(255, 255, 255, 0.15);
-}
-
-/* The speed preset buttons opt into the pill shape. Nothing else inside a
-   popover matches the bar rules anymore (the `>` legs stop at the inner
-   button), so this styles exactly the presets — the mute toggle and any
-   future plain popover control keep the theme's chrome. */
-.floating-bar popover button.pill {
-    border-radius: 999px;
-}
-
-.floating-bar button.flat label,
-.floating-bar menubutton.flat > button label {
-    font-size: 1.1em;
-}
-
-/* GTK parents a popover's CSS node under its anchor widget, so the ink
-   rules above reach THROUGH the bar's buttons into their attached
-   popovers — the "..." menu and the volume/speed popovers would wear
-   overlay ink on a chrome surface (light text on a light palette
-   popover: the "fonts problem" in light mode). Popovers are chrome:
-   hand them back the theme's own popover colors. */
-.floating-bar popover label,
-.floating-bar popover button {
-    color: @popover_fg_color;
-}
-
-/* The playback bar is the one used while watching: its controls are a
-   size step larger than the header's. Scopes match the .floating-bar block —
-   the `>` leg keeps this off the controls inside the attached popovers. */
-.floating-playbar button.flat,
-.floating-playbar menubutton.flat > button {
-    min-height: 58px;
-    min-width: 58px;
-    -gtk-icon-size: 34px;
-}
-
-.floating-playbar button.flat label,
-.floating-playbar menubutton.flat > button label {
-    font-size: 1.3em;
-}
-
-.header-title {
-    font-weight: 600;
-    font-size: 1.05em;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-}
-
+/* Time labels: digits that never shift the layout as they count. */
 .time-label {
     font-variant-numeric: tabular-nums;
-    font-size: 1.3em;
-    opacity: 0.9;
 }
 
-/* Chunky seek slider: easy to hit with the pointer. The trough is styled
-   here rather than inherited from the theme: over the always-dark overlay
-   it must be a light translucent grey in both variants, so the accent
-   fill and the white knob read against it whatever the chrome palette is. */
-scale.seek trough {
-    min-height: 18px;
-    border-radius: 999px;
-    background-color: rgba(255, 255, 255, 0.25);
-}
-
-scale.seek trough highlight {
-    background-color: @accent_bg_color;
-    border-radius: 999px;
-}
-
-scale.seek trough slider {
-    min-height: 32px;
-    min-width: 32px;
-    margin: -7px;
-    border-radius: 999px;
-    background-color: #f6f6f6;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
-}
-
-/* Volume / speed sliders inside the popovers, same idea at popover scale.
-   They live in popovers - real chrome - so they take their colors from
-   the theme (the palette, dark or light like the rest of it) and set no
-   colors of their own. */
-popover scale trough {
-    min-height: 12px;
-    border-radius: 999px;
-}
-
-popover scale trough slider {
-    min-height: 24px;
-    min-width: 24px;
-    margin: -6px;
-    border-radius: 999px;
-}
-
-/* Big play/pause in the middle of the video: icon only, no disc — the
-   picture stays unobstructed (the button carries the `flat` class so the
-   theme draws no background either). White ink for the same reason as the
-   scrims: it rides on the picture, which can be any color. */
+/* Big play/pause in the middle of the video and the skip buttons flanking
+   it: `.osd .circular` buttons — libadwaita's over-content control, dark
+   disc and hover/press states included. Only the sizes are ours: the play
+   button is the obvious target, the skips one step below it. */
 button.center-play {
     min-height: 92px;
     min-width: 92px;
     padding: 0;
     -gtk-icon-size: 44px;
-    color: #f6f6f6;
-    /* Not inside a .floating-bar, so none of the bar button rules reach it;
-       carry the same state language explicitly: faint wash on hover, press
-       box on click, full pill (circle at this size) like the bar controls. */
-    border-radius: 999px;
 }
 
-button.center-play:hover {
-    background: rgba(255, 255, 255, 0.06);
-}
-
-button.center-play:active {
-    background: rgba(255, 255, 255, 0.15);
-}
-
-/* The prev/next buttons flanking the center play/pause. Like the center
-   button they float on the picture, not on a scrim, so they carry their own
-   ink and state language (the `.floating-bar` rules never reach them) — a
-   size step below the play button so it stays the obvious target. */
 button.center-skip {
     min-height: 56px;
     min-width: 56px;
     padding: 0;
     -gtk-icon-size: 28px;
-    color: #f6f6f6;
-    border-radius: 999px;
-}
-
-button.center-skip:hover {
-    background: rgba(255, 255, 255, 0.06);
-}
-
-button.center-skip:active {
-    background: rgba(255, 255, 255, 0.15);
 }
 
 /* Drag & drop feedback: while a file drag is over the window, frame the
    video with a dashed outline and say what the drop will do. It is an
    overlay child drawn over the video (a window-level CSS outline would be
    painted under the GLArea), shown only between drag-enter and
-   drag-leave/drop. Same ink logic as the scrims: dark behind, light ink. */
+   drag-leave/drop. The dark fill and white ink are the `.osd` class. */
 label.drop-hint {
     margin: 14px;
-    border: 3px dashed alpha(#f6f6f6, 0.85);
+    border: 3px dashed alpha(white, 0.85);
     border-radius: 10px;
-    background-color: alpha(black, 0.35);
-    color: #f6f6f6;
     font-weight: 600;
     font-size: 1.4em;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
-/* Volume OSD on the right edge: a small dark HUD capsule, like a phone's
-   volume indicator. Floating the icon/bar/percent straight over the video
-   fails there — a translucent-white track and icon disappear into bright
-   footage, and no text-shadow saves them. The capsule shades itself, so
-   the same ink reads on any picture. The bar is a LevelBar (an indicator,
-   never takes input); the theme already fills blocks with the accent —
-   the one palette color that reads over video (same reasoning as the
-   seek fill) — so only the always-dark trough is set here. */
+/* Volume OSD on the right edge: an `.osd` capsule (theme-drawn) holding a
+   LevelBar — an indicator, never takes input; inside `.osd` the theme
+   already fills it with the over-video accent, the one color that reads
+   over any picture. Shape and size only; the trough gets the same
+   translucent light treatment as the seek slider. */
 .volume-osd {
     padding: 18px 14px;
     border-radius: 999px;
-    background-color: alpha(black, 0.55);
-    /* 1px rim keeps the capsule edge defined over near-black footage,
-       where a plain fill would vanish. */
-    border: 1px solid alpha(#f6f6f6, 0.12);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-    color: #f6f6f6;
 }
 
-.volume-osd image {
-    -gtk-icon-size: 24px;
-    -gtk-icon-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+.volume-osd levelbar trough {
+    background-color: alpha(white, 0.15);
 }
 
 .volume-osd label {
     font-variant-numeric: tabular-nums;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
     /* Fixed digit slot (odometer): wide enough for the widest readout —
        measured "130%" is 2.13em — and the text is right-aligned in it
        (xalign in volume.rs), so no digit moves when the count changes.
        The box size stays fixed in code too — the readout never feeds
        the layout. */
     min-width: 2.2em;
-}
-
-levelbar.volume-osd-bar trough {
-    /* Size is set in code (volume.rs); this rule is shape and the initial
-       paint only. The fill is a gradient stop on the trough itself, not
-       the LevelBar block: a background is always clipped by the node's
-       border-radius, so the fill edge can never poke past the shell and
-       a low level reads as the bottom of the container filled, not a
-       detached dot. volume.rs rewrites the stop each frame; the 77% here
-       matches the initial value (100 of 130). */
-    border-radius: 999px;
-    background-image: linear-gradient(
-        to top,
-        @accent_bg_color 0%, @accent_bg_color 77%,
-        rgba(255, 255, 255, 0.18) 77%, rgba(255, 255, 255, 0.18) 100%
-    );
-}
-
-levelbar.volume-osd-bar trough > block,
-levelbar.volume-osd-bar trough > block.empty {
-    /* The LevelBar still carries the value (accessibility), but the paint
-       is the trough gradient — keep both block halves silent. */
-    border-width: 0;
-    background-color: transparent;
 }

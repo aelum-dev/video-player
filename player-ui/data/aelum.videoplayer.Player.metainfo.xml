@@ -16,10 +16,10 @@
        conventional "nothing to rate" marker for a player. -->
   <content_rating type="oars-1.1"/>
   <description>
-    <p>Plays video and audio through libmpv behind a minimal interface:
-    the controls float over the video and fade when the pointer goes idle,
-    files can be dropped on the window, and the player reopens where you
-    left off.</p>
+    <p>Plays video and audio through libmpv behind a GNOME-style interface: a
+    header bar and a playback toolbar; in fullscreen the same controls float
+    over the video and fade when the pointer goes idle. Files can be dropped
+    on the window, and the player reopens where you left off.</p>
   </description>
   <categories>
     <category>AudioVideo</category>

@@ -1,10 +1,12 @@
-//! The widgets the event pump keeps in sync, plus the idle-hide state
-//! machine that fades the controls over the video.
+//! The widgets the event pump keeps in sync, the windowed/fullscreen mode
+//! switch, and the idle-hide state machine that fades the controls while
+//! fullscreen.
 
 use std::cell::Cell;
 use std::rc::Rc;
 
 use gtk::prelude::*;
+use libadwaita as adw;
 use player_core::{Chapter, PlaybackState};
 
 use crate::format;
@@ -18,12 +20,23 @@ const IDLE_HIDE_MS: i64 = 2500;
 /// How often the idle check runs (cheap: a few `Cell` reads).
 pub(super) const IDLE_TICK_MS: u64 = 500;
 
-/// The widgets the event pump has to keep in sync, plus the idle-hide state.
+/// The widgets the event pump has to keep in sync, plus the mode and
+/// idle-hide state.
 #[derive(Clone)]
 pub struct Controls {
-    pub(super) header: gtk::Revealer,
-    pub(super) playbar: gtk::Revealer,
-    pub(super) title: gtk::Label,
+    /// The chrome framing the video. In fullscreen its top bar (the header)
+    /// retracts and the playback bar leaves its bottom slot.
+    pub(super) toolbar: adw::ToolbarView,
+    /// The playback bar itself — one set of widgets, parented to the
+    /// toolbar while windowed and to `fs_playbar` while fullscreen.
+    pub(super) playbar: gtk::Box,
+    /// The bar's fullscreen parent: an empty revealer while windowed.
+    pub(super) fs_playbar: gtk::Revealer,
+    /// The bar's buttons — their style class flips with the mode
+    /// (`.flat` on chrome, `.osd` over video). Menu buttons are listed as
+    /// wrappers: the class belongs on the `menubutton` node (api-notes).
+    pub(super) bar_buttons: Vec<gtk::Widget>,
+    pub(super) play_button: gtk::Button,
     pub(super) seek: gtk::Scale,
     pub(super) time_label: gtk::Label,
     pub(super) duration_label: gtk::Label,
@@ -38,9 +51,8 @@ pub struct Controls {
     pub(super) speed_button: gtk::MenuButton,
     pub(super) speed_scale: gtk::Scale,
     pub(super) fullscreen_button: gtk::Button,
-    /// Big play/pause button (icon only, no background) floating in the
-    /// middle of the video;
-    /// revealed whenever the controls are.
+    /// Big play/pause button (`.osd .circular`) floating in the middle of
+    /// the video; `refresh` owns its visibility (see there).
     pub(super) center: gtk::Revealer,
     pub(super) center_button: gtk::Button,
     /// Right-edge volume OSD: shown from `refresh` whenever the folded
@@ -54,12 +66,15 @@ pub struct Controls {
     /// this the pump would snap the knob back to the stale position for a frame
     /// or two before the seek lands.
     pub(super) seek_settle: Rc<Cell<i64>>,
-    /// Pointer is over one of the control bars, or a popover is open.
+    /// Pointer is over one of the floating controls, or a popover is open.
     pub(super) hover: Rc<Cell<bool>>,
     /// A file drag is over the window. While set, the controls stay hidden so
     /// the drop hint has the video to itself (see `set_drag_active`).
     pub(super) dragging: Rc<Cell<bool>>,
     pub(super) revealed: Rc<Cell<bool>>,
+    /// True while the window is fullscreen — the only mode where the
+    /// playback bar floats over the video and the idle-hide applies.
+    pub(super) fullscreen: Rc<Cell<bool>>,
     pub(super) last_motion: Rc<Cell<i64>>,
     /// Last pointer position. Wayland re-sends the (unchanged) pointer
     /// position as a motion event after every surface commit — with a
@@ -80,6 +95,45 @@ impl Controls {
         }
     }
 
+    /// Enter (`on`) or leave fullscreen. The header retracts and the
+    /// playback bar moves between the toolbar's bottom slot (chrome) and
+    /// the overlay revealer (an `.osd` pill over the video) — one set of
+    /// widgets, so the event pump, the seek wiring and the popovers never
+    /// notice. The `.flat` ↔ `.osd` flip is what makes the same buttons
+    /// read as chrome or as over-content controls; both are theme styles.
+    pub(super) fn set_fullscreen(&self, on: bool) {
+        if self.fullscreen.get() == on {
+            return;
+        }
+        self.fullscreen.set(on);
+        self.toolbar.set_reveal_top_bars(!on);
+        if on {
+            self.toolbar.remove(&self.playbar);
+            self.playbar.remove_css_class("toolbar");
+            self.playbar.add_css_class("osd");
+            self.playbar.add_css_class("floating-bar");
+            for button in &self.bar_buttons {
+                button.remove_css_class("flat");
+                button.add_css_class("osd");
+            }
+            self.fs_playbar.set_child(Some(&self.playbar));
+            self.fs_playbar.set_reveal_child(self.revealed.get());
+        } else {
+            self.fs_playbar.set_child(None::<&gtk::Widget>);
+            self.playbar.remove_css_class("osd");
+            self.playbar.remove_css_class("floating-bar");
+            self.playbar.add_css_class("toolbar");
+            for button in &self.bar_buttons {
+                button.remove_css_class("osd");
+                button.add_css_class("flat");
+            }
+            self.toolbar.add_bottom_bar(&self.playbar);
+            self.poke();
+        }
+    }
+
+    /// Show or fade the floating playback bar. Windowed, the bar is chrome
+    /// and has no revealer — only the fullscreen parent answers.
     pub(super) fn set_revealed(&self, on: bool) {
         // While a file drag is over the window the controls are forced down:
         // the drop hint owns the screen. `set_drag_active(false)` brings them
@@ -90,12 +144,7 @@ impl Controls {
             return;
         }
         self.revealed.set(on);
-        self.header.set_reveal_child(on);
-        self.playbar.set_reveal_child(on);
-        // The center play/pause button rides with the controls: it is there
-        // whenever the user is interacting (and stays while paused), and fades
-        // out with everything else on idle.
-        self.center.set_reveal_child(on);
+        self.fs_playbar.set_reveal_child(on);
     }
 
     /// A file drag entered (`on`) or left (`off`) the window. Hide the controls
@@ -126,10 +175,13 @@ impl Controls {
     }
 
     /// Runs on the idle tick: fade out when the pointer has been still for a
-    /// while and nothing is being interacted with. Stays up while paused —
-    /// that is when people reach for the controls, and at startup (nothing
-    /// loaded) the play button is the one thing the window is offering.
+    /// while and nothing is being interacted with. Windowed, the controls are
+    /// chrome — there is nothing to fade. Stays up while paused —
+    /// that is when people reach for the controls.
     pub(super) fn idle_tick(&self, state: &PlaybackState) {
+        if !self.fullscreen.get() {
+            return;
+        }
         if !self.revealed.get() || self.busy() || state.paused {
             return;
         }
@@ -152,22 +204,27 @@ impl Controls {
 
     /// Sync every control from the folded playback state.
     pub fn refresh(&self, state: &PlaybackState) {
-        // The center button mirrors the play state with its icon; its
-        // visibility follows the controls (see `set_revealed`).
-        self.center_button.set_icon_name(Self::play_icon(state.paused));
+        // Both play buttons mirror the play state with their icon.
+        self.center_button
+            .set_icon_name(Self::play_icon(state.paused));
+        self.play_button
+            .set_icon_name(Self::play_icon(state.paused));
+        // The center row: in fullscreen it rides with the controls; windowed,
+        // the chrome bar owns playback and the big button is only the
+        // affordance over an empty or paused canvas.
+        let center_visible = if self.fullscreen.get() {
+            self.revealed.get()
+        } else {
+            state.paused || state.source.is_none()
+        };
+        self.center.set_reveal_child(center_visible);
         self.time_label
             .set_text(&format::clock(state.position));
         self.duration_label
             .set_text(&format::clock(state.duration));
-        self.title
-            .set_text(
-                state.title()
-                    .unwrap_or_else(|| crate::i18n::t("app.name"))
-                    .as_str(),
-            );
         self.volume_button
             .set_icon_name(volume_icon(state.volume, state.muted));
-        // The left-edge OSD flashes on any change of the pair — including
+        // The right-edge OSD flashes on any change of the pair — including
         // mute alone, so pressing `m` gets the same feedback as scrolling.
         self.volume_osd.sync(state.volume, state.muted);
         self.speed_button.set_label(&format!("{:.2}×", state.speed));

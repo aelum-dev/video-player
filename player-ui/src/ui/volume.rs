@@ -37,18 +37,11 @@ const OSD_WIDTH: i32 = 64;
 /// over video.
 const BAR_WIDTH: i32 = 18;
 const BAR_HEIGHT: i32 = 140;
-/// Fill tween after a step: the label shows the number at once, the bar
-/// eases to it. 250 ms read as laggy against the wheel's pace; 150 ms
-/// still reads as motion, not a jump-cut.
+/// The fill of a native LevelBar follows its value, so the tween is the
+/// value writes; `ANIM_MS` is the ease duration. 250 ms read as laggy
+/// against the wheel's pace; 150 ms still reads as motion, not a jump-cut.
 const ANIM_MS: i64 = 150;
 const ANIM_TICK_MS: u32 = 16;
-
-/// The fill stop of the trough gradient, as a percent of bar height (the
-/// gradient runs bottom-up). Clamped so an out-of-range value can never
-/// produce a negative or past-100 stop. Pure so it is unit-tested.
-fn fill_stop_pct(value: f64) -> f64 {
-    (value / MAX_VOLUME * 100.0).clamp(0.0, 100.0)
-}
 
 /// Fold one scroll event into the notch accumulator and report the whole
 /// steps produced (positive = volume up). A step fires only once a full
@@ -76,14 +69,14 @@ fn tween_value(from: f64, to: f64, elapsed_ms: i64, dur: i64) -> f64 {
     from + (to - from) * eased
 }
 
-/// The right-edge volume OSD. `sync` shows only when the (volume, muted)
-/// pair actually changed.
+/// The right-edge volume OSD: an `.osd` capsule (libadwaita's own
+/// over-content style — dark translucent shell, white ink) holding a
+/// LevelBar. `sync` shows only when the (volume, muted) pair actually
+/// changed.
 #[derive(Clone)]
 pub(super) struct VolumeOsd {
     revealer: gtk::Revealer,
     bar: gtk::LevelBar,
-    /// Rewritten per frame: the fill stop of the trough gradient.
-    fill_css: gtk::CssProvider,
     percent: gtk::Label,
     icon: gtk::Image,
     /// The (volume, muted) pair currently shown — the change detector.
@@ -106,25 +99,11 @@ pub(super) fn build() -> VolumeOsd {
     bar.set_inverted(true);
     bar.set_min_value(0.0);
     bar.set_max_value(MAX_VOLUME);
-    bar.add_css_class("volume-osd-bar");
     bar.set_size_request(BAR_WIDTH, BAR_HEIGHT);
     bar.set_halign(gtk::Align::Center);
     // Match `shown`'s initial value: the first change animates from the
     // level claimed, not from an empty bar.
     bar.set_value(100.0);
-    // The fill is painted as a gradient stop on the trough (see style.css):
-    // a background is clipped by the node's border-radius, so the fill can
-    // never poke past the shell at any level. This provider is scoped by
-    // the `.volume-osd-bar` class — only this bar matches — and is
-    // rewritten at every tween frame.
-    let fill_css = gtk::CssProvider::new();
-    if let Some(display) = gtk::gdk::Display::default() {
-        gtk::style_context_add_provider_for_display(
-            &display,
-            &fill_css,
-            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
-        );
-    }
     let percent = gtk::Label::builder()
         .label("100%")
         // Odometer, not centering: the slot is the width of the widest
@@ -135,9 +114,9 @@ pub(super) fn build() -> VolumeOsd {
         .xalign(1.0)
         .halign(gtk::Align::Center)
         .build();
-    percent.add_css_class("volume-osd-percent");
 
     let box_ = gtk::Box::new(gtk::Orientation::Vertical, 12);
+    box_.add_css_class("osd");
     box_.add_css_class("volume-osd");
     box_.set_size_request(OSD_WIDTH, -1);
     box_.append(&icon);
@@ -158,7 +137,6 @@ pub(super) fn build() -> VolumeOsd {
         bar,
         percent,
         icon,
-        fill_css,
         // Matches `PlaybackState::default`: the first pump refresh must not
         // flash for a volume nobody changed.
         shown: Rc::new(Cell::new((100.0, false))),
@@ -179,7 +157,7 @@ impl VolumeOsd {
             return;
         }
         self.shown.set((volume, muted));
-        paint_fill(&self.bar, &self.fill_css, self.animate_to(volume));
+        self.animate_to(volume);
         self.percent.set_text(&format!("{}%", volume.round()));
         self.icon.set_icon_name(Some(volume_icon(volume, muted)));
         self.revealer.set_reveal_child(true);
@@ -195,23 +173,20 @@ impl VolumeOsd {
         *self.hide_id.borrow_mut() = Some(id);
     }
 
-    /// Start or re-anchor the fill tween and return the value to paint on
-    /// THIS frame. A mid-tween change continues from where the bar is,
-    /// not from the old target.
-    fn animate_to(&self, target: f64) -> f64 {
+    /// Start or re-anchor the fill tween. A mid-tween change continues from
+    /// where the bar is, not from the old target.
+    fn animate_to(&self, target: f64) {
         let from = self.bar.value();
         if let Some(id) = self.anim_id.borrow_mut().take() {
             id.remove();
         }
         let start = now_ms();
         let bar = self.bar.clone();
-        let css = self.fill_css.clone();
         let slot = self.anim_id.clone();
         let id = glib::timeout_add_local(
             Duration::from_millis(ANIM_TICK_MS as u64),
             move || -> glib::ControlFlow {
-                let value = tween_value(from, target, now_ms() - start, ANIM_MS);
-                paint_fill(&bar, &css, value);
+                bar.set_value(tween_value(from, target, now_ms() - start, ANIM_MS));
                 if now_ms() - start >= ANIM_MS {
                     *slot.borrow_mut() = None;
                     glib::ControlFlow::Break
@@ -221,24 +196,7 @@ impl VolumeOsd {
             },
         );
         *self.anim_id.borrow_mut() = Some(id);
-        tween_value(from, target, 0, ANIM_MS)
     }
-}
-
-/// Paint the fill for one value: rewrite the trough gradient so the
-/// accent occupies the bottom `fill_stop_pct` of the bar. The gradient
-/// is clipped by the trough's rounded shape, so no fill edge can cross
-/// the shell at any level; the LevelBar value is kept only for
-/// accessibility (the blocks are transparent, see style.css).
-fn paint_fill(bar: &gtk::LevelBar, css: &gtk::CssProvider, value: f64) {
-    let stop = fill_stop_pct(value);
-    let rule = format!(
-        "levelbar.volume-osd-bar trough {{ background-image: linear-gradient( \
-         to top, @accent_bg_color 0%, @accent_bg_color {stop:.2}%, \
-         rgba(255, 255, 255, 0.18) {stop:.2}%, rgba(255, 255, 255, 0.18) 100%); }}"
-    );
-    css.load_from_string(&rule);
-    bar.set_value(value);
 }
 
 /// Wheel-over-window volume control. Window-level: the wheel changes the
@@ -268,9 +226,7 @@ pub(super) fn attach_scroll(window: &impl IsA<gtk::Widget>) {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        ANIM_MS, MAX_VOLUME, fill_stop_pct, scroll_accumulate, tween_value,
-    };
+    use super::{ANIM_MS, scroll_accumulate, tween_value};
 
     #[test]
     fn one_wheel_notch_steps_once() {
@@ -304,16 +260,6 @@ mod tests {
         assert_eq!((acc, steps), (0.7, 0));
         let (acc, steps) = scroll_accumulate(acc, 0.3);
         assert_eq!((acc, steps), (0.0, -1));
-    }
-
-    #[test]
-    fn the_fill_stop_spans_the_full_bar_and_stays_in_range() {
-        assert_eq!(fill_stop_pct(0.0), 0.0);
-        assert_eq!(fill_stop_pct(65.0), 50.0);
-        assert_eq!(fill_stop_pct(MAX_VOLUME), 100.0);
-        // Out-of-range values clamp: no negative or past-100 gradient stop.
-        assert_eq!(fill_stop_pct(-10.0), 0.0);
-        assert_eq!(fill_stop_pct(MAX_VOLUME * 2.0), 100.0);
     }
 
     #[test]

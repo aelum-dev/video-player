@@ -25,6 +25,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use gtk::prelude::*;
+use libadwaita::prelude::AdwDialogExt;
 use libadwaita as adw;
 use player_core::last_played::{self, LastPlayed};
 use player_core::{MpvEngine, PlaybackEngine, PlaybackState, PlayerEvent};
@@ -314,6 +315,31 @@ fn setup_actions(app: &adw::Application, shared: &Shared) {
         }
     });
     app.add_action(&quit);
+
+    // The header's (i) button. `AdwAboutDialog` is the GNOME-standard About:
+    // it draws itself from these fields, follows the theme, and closes on
+    // Escape. The version is the crate's — `bump-version.sh` moves it and
+    // this dialog cannot drift. The icon name is the app ID: the package
+    // installs the SVG under it (hicolor), so the dialog finds it.
+    let about = gtk::gio::SimpleAction::new("about", None);
+    about.connect_activate({
+        let window_slot = shared.window.clone();
+        move |_, _| {
+            let Some(win) = window_slot.borrow().clone() else {
+                return;
+            };
+            adw::AboutDialog::builder()
+                .application_name(i18n::t("app.name"))
+                .application_icon(APP_ID)
+                .developer_name("Aelum")
+                .version(env!("CARGO_PKG_VERSION"))
+                .website("https://aelum.dev")
+                .license_type(gtk::License::Gpl30Only)
+                .build()
+                .present(Some(&win));
+        }
+    });
+    app.add_action(&about);
 
     app.set_accels_for_action("app.open", &["<Ctrl>o"]);
     app.set_accels_for_action("app.quit", &["<Ctrl>q"]);

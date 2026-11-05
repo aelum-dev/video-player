@@ -1,6 +1,12 @@
-//! Window assembly: the video surface with the controls floating over it,
-//! the header and playback bars, and the window-level gestures (move by
-//! header drag, double-click fullscreen, volume by wheel).
+//! Window assembly: GNOME chrome — a header bar and a bottom playback
+//! toolbar (an `AdwToolbarView`) — framing the video surface, plus the
+//! floating OSD controls and the window-level gestures (double-click
+//! fullscreen, volume by wheel).
+//!
+//! The playback bar is ONE set of widgets that changes parent with the
+//! mode: the toolbar's bottom slot while windowed (theme chrome), and an
+//! `.osd` pill inside the overlay while fullscreen (over the video, fading
+//! on idle). See `Controls::set_fullscreen`.
 
 use std::cell::Cell;
 use std::rc::Rc;
@@ -19,18 +25,6 @@ use crate::Shared;
 use super::controls::{Controls, IDLE_TICK_MS};
 use super::now_ms;
 use super::{dnd, seek, volume};
-
-/// Wrap a bar so it can fade in/out as an overlay child pinned to one edge.
-fn overlay_revealer(bar: &impl IsA<gtk::Widget>, valign: gtk::Align) -> gtk::Revealer {
-    let revealer = gtk::Revealer::new();
-    revealer.set_child(Some(bar));
-    revealer.set_transition_type(gtk::RevealerTransitionType::Crossfade);
-    revealer.set_transition_duration(250);
-    revealer.set_valign(valign);
-    revealer.set_hexpand(true);
-    revealer.set_reveal_child(true);
-    revealer
-}
 
 /// Mark a widget and everything below it right-to-left (no-op in LTR locales).
 ///
@@ -60,30 +54,20 @@ fn flat_button(icon: &str, action: Option<&str>, tip: &str) -> gtk::Button {
     button
 }
 
-fn build_header(window: &adw::ApplicationWindow) -> (gtk::Revealer, gtk::Label) {
-    let bar = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-    bar.add_css_class("floating-bar");
-    bar.add_css_class("floating-header");
+/// The header bar: real GNOME chrome. The title is the window title, which
+/// the event pump already mirrors to the media title; the window controls and
+/// the drag-to-move come from libadwaita itself (an `AdwToolbarView` bar is
+/// a titlebar — the hand-rolled `begin_move` drag this replaces was a
+/// workaround for a window that had none).
+fn build_header() -> adw::HeaderBar {
+    let header = adw::HeaderBar::new();
 
     let open = flat_button(
         "document-open-symbolic",
         Some("app.open"),
         &i18n::t("header.open"),
     );
-
-    let title = gtk::Label::builder()
-        .label(i18n::t("app.name"))
-        .ellipsize(gtk::pango::EllipsizeMode::Middle)
-        .max_width_chars(48)
-        .xalign(0.5)
-        .build();
-    title.add_css_class("header-title");
-    // The title is the visible handle of the window-move drag below. GTK4
-    // CSS has no `cursor` property (that was GTK3) — the cursor is a widget
-    // property set in code.
-    title.set_cursor_from_name(Some("grab"));
-    title.set_hexpand(true);
-    title.set_halign(gtk::Align::Center);
+    header.pack_start(&open);
 
     let menu_model = gtk::gio::Menu::new();
     menu_model.append(Some(&i18n::t("menu.open")), Some("app.open"));
@@ -95,66 +79,49 @@ fn build_header(window: &adw::ApplicationWindow) -> (gtk::Revealer, gtk::Label) 
         .build();
     menu.add_css_class("flat");
     menu.set_menu_model(Some(&menu_model));
+    // pack_end places from the right edge inward: the primary menu sits
+    // outermost, as in every GNOME app.
+    header.pack_end(&menu);
 
-    let close = flat_button("window-close-symbolic", None, &i18n::t("header.close"));
-    let window_clone = window.clone();
-    close.connect_clicked(move |_| window_clone.close());
+    let about = flat_button(
+        "help-about-symbolic",
+        Some("app.about"),
+        &i18n::t("about.label"),
+    );
+    header.pack_end(&about);
 
-    // Drag the header bar to move the window: it is the titlebar of a window
-    // that has none. `begin_move` sends xdg_toplevel.move, which Hyprland
-    // only began honoring in 0.56 ("xdg interactive drags") — before that a
-    // client-initiated move was ignored and the drag did nothing.
-    //
-    // A claimed sequence still reaches the claiming widget's ancestors, so a
-    // press on one of the bar's buttons WOULD arrive here too — hit-test the
-    // press against every control's bounds and leave those to the buttons.
-    // Presses on the bar itself (title, gaps, padding) start the move; the
-    // compositor takes over from there, a press without motion is a no-op,
-    // and the controls stay up because the hover controller keeps reporting
-    // the pointer as inside the bar.
-    let move_drag = gtk::EventControllerLegacy::new();
-    {
-        let window = window.clone();
-        let controls: Vec<gtk::Widget> =
-            vec![open.clone().upcast(), menu.clone().upcast(), close.clone().upcast()];
-        move_drag.connect_event(move |_ctrl, event| {
-            if event.event_type() == gtk::gdk::EventType::ButtonPress
-                && let Some(button) = event.downcast_ref::<gtk::gdk::ButtonEvent>()
-                && button.button() == 1
-                && !window.is_fullscreen()
-                && let Some((x, y)) = event.position()
-                && !controls.iter().any(|control| {
-                    control.compute_bounds(&window).is_some_and(|bounds| {
-                        x >= f64::from(bounds.x())
-                            && x < f64::from(bounds.x() + bounds.width())
-                            && y >= f64::from(bounds.y())
-                            && y < f64::from(bounds.y() + bounds.height())
-                    })
-                })
-                && let Some(device) = event.device()
-                && let Some(toplevel) = window
-                    .surface()
-                    .and_then(|surface| surface.downcast::<gtk::gdk::Toplevel>().ok())
-            {
-                toplevel.begin_move(&device, 1, x, y, event.time());
-            }
-            glib::Propagation::Proceed
-        });
-    }
-    bar.add_controller(move_drag);
-
-    bar.append(&open);
-    bar.append(&title);
-    bar.append(&menu);
-    bar.append(&close);
-
-    (overlay_revealer(&bar, gtk::Align::Start), title)
+    header
 }
 
-fn build_playbar(shared: &Shared) -> (gtk::Revealer, PlayBar) {
-    let bar = gtk::Box::new(gtk::Orientation::Horizontal, 4);
-    bar.add_css_class("floating-bar");
-    bar.add_css_class("floating-playbar");
+/// The playback bar. Windowed it is a `.toolbar` in the chrome; fullscreen
+/// the same box becomes an `.osd` pill — its buttons flip `.flat` ↔ `.osd`
+/// with it (see `Controls::set_fullscreen`), so no rule here owns a color.
+fn build_playbar(shared: &Shared) -> (gtk::Box, PlayBar) {
+    let bar = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    bar.add_css_class("toolbar");
+
+    // Start as a play triangle: the player opens with nothing loaded and
+    // this is the control that starts something (the last title — see
+    // `toggle_playback`).
+    let play = flat_button(
+        Controls::play_icon(true),
+        Some("app.play-pause"),
+        &i18n::t("bar.playPause"),
+    );
+
+    // Skip to the previous/next file in the directory; with no playlist to
+    // walk the core steps chapters instead (see `skip_target`). The same
+    // actions as the center row's buttons and the `<` / `>` keys.
+    let prev = flat_button(
+        "media-skip-backward-symbolic",
+        Some("app.skip-prev"),
+        &i18n::t("center.prev"),
+    );
+    let next = flat_button(
+        "media-skip-forward-symbolic",
+        Some("app.skip-next"),
+        &i18n::t("center.next"),
+    );
 
     let time_label = gtk::Label::new(Some("0:00"));
     time_label.add_css_class("time-label");
@@ -168,7 +135,6 @@ fn build_playbar(shared: &Shared) -> (gtk::Revealer, PlayBar) {
     seek.set_draw_value(false);
     seek.set_hexpand(true);
     seek.adjustment().set_page_increment(0.0);
-    seek.add_css_class("seek");
 
     let volume_button = gtk::MenuButton::builder()
         .icon_name("audio-volume-high-symbolic")
@@ -244,7 +210,6 @@ fn build_playbar(shared: &Shared) -> (gtk::Revealer, PlayBar) {
         ("2.00×", 2.0),
     ] {
         let preset = gtk::Button::builder().label(label).build();
-        preset.add_css_class("pill");
         let speed_scale = speed_scale.clone();
         preset.connect_clicked(move |_| speed_scale.set_value(speed));
         speed_row.append(&preset);
@@ -254,22 +219,39 @@ fn build_playbar(shared: &Shared) -> (gtk::Revealer, PlayBar) {
     speed_box.append(&speed_row);
     speed_button.set_popover(Some(&gtk::Popover::builder().child(&speed_box).build()));
 
-    let fullscreen_button = flat_button(
+    let fullscreen = flat_button(
         "view-fullscreen-symbolic",
         Some("app.fullscreen"),
         &i18n::t("bar.fullscreen"),
     );
 
+    bar.append(&play);
+    bar.append(&prev);
+    bar.append(&next);
     bar.append(&time_label);
     bar.append(&seek);
     bar.append(&duration_label);
     bar.append(&volume_button);
     bar.append(&speed_button);
-    bar.append(&fullscreen_button);
+    bar.append(&fullscreen);
+
+    // Every button whose style class flips with the mode. The menu buttons
+    // are listed as wrappers: `.flat`/`.osd` belong on the `menubutton`
+    // node, whose inner `button` the theme styles (api-notes).
+    let bar_buttons = vec![
+        play.clone().upcast(),
+        prev.upcast(),
+        next.upcast(),
+        volume_button.clone().upcast(),
+        speed_button.clone().upcast(),
+        fullscreen.clone().upcast(),
+    ];
 
     (
-        overlay_revealer(&bar, gtk::Align::End),
+        bar,
         PlayBar {
+            bar_buttons,
+            play,
             seek,
             time_label,
             duration_label,
@@ -278,12 +260,14 @@ fn build_playbar(shared: &Shared) -> (gtk::Revealer, PlayBar) {
             volume_scale_changed,
             speed_button,
             speed_scale,
-            fullscreen_button,
+            fullscreen_button: fullscreen,
         },
     )
 }
 
 struct PlayBar {
+    bar_buttons: Vec<gtk::Widget>,
+    play: gtk::Button,
     seek: gtk::Scale,
     time_label: gtk::Label,
     duration_label: gtk::Label,
@@ -297,42 +281,43 @@ struct PlayBar {
     fullscreen_button: gtk::Button,
 }
 
-/// The big play/pause button in the middle of the video (icon only, no
-/// background), with the prev/next skip buttons flanking it left and right.
-/// The row rides with
-/// the floating controls (see `Controls::set_revealed`): visible while the
-/// user is interacting or paused, faded out on idle. Its icon tracks the play
-/// state, and it starts as a play triangle — the player opens with nothing
-/// loaded and this button is the control that starts something.
+/// The big play/pause button in the middle of the video, with the
+/// prev/next skip buttons flanking it. It is an `.osd .circular` button —
+/// libadwaita's own over-content control (dark disc, white ink, its own
+/// hover/press states) — and rides with the floating controls: visible
+/// while paused or nothing is loaded, faded on idle while playing.
 fn build_center() -> (gtk::Revealer, gtk::Button) {
     let button = gtk::Button::builder()
         .icon_name(Controls::play_icon(true))
         .action_name("app.play-pause")
         .build();
-    button.add_css_class("flat");
+    button.add_css_class("osd");
+    button.add_css_class("circular");
     button.add_css_class("center-play");
 
-    // Skip to the previous/next file in the directory; with no playlist to
-    // walk the core steps chapters instead (see `skip_target`). They sit
-    // beside the play button, not in the playbar: these are the reach-for-
-    // them-while-watching controls, and the center row is where the eyes
-    // already are. `<`/`>` keep the same actions.
+    // The same skip actions as the bar's, beside the play button: these are
+    // the reach-for-them-while-watching controls, and the center row is
+    // where the eyes already are. `<`/`>` keep the same actions.
     //
     // `valign: center` is not decoration: the row is as tall as the 92px
     // play button, and a box stretches its children to fill vertically —
     // the skip buttons' press box would be a 56x92 ellipse, not a circle.
-    let prev_skip = flat_button(
-        "media-skip-backward-symbolic",
-        Some("app.skip-prev"),
-        &i18n::t("center.prev"),
-    );
+    let prev_skip = gtk::Button::builder()
+        .icon_name("media-skip-backward-symbolic")
+        .action_name("app.skip-prev")
+        .tooltip_text(i18n::t("center.prev"))
+        .build();
+    prev_skip.add_css_class("osd");
+    prev_skip.add_css_class("circular");
     prev_skip.add_css_class("center-skip");
     prev_skip.set_valign(gtk::Align::Center);
-    let next_skip = flat_button(
-        "media-skip-forward-symbolic",
-        Some("app.skip-next"),
-        &i18n::t("center.next"),
-    );
+    let next_skip = gtk::Button::builder()
+        .icon_name("media-skip-forward-symbolic")
+        .action_name("app.skip-next")
+        .tooltip_text(i18n::t("center.next"))
+        .build();
+    next_skip.add_css_class("osd");
+    next_skip.add_css_class("circular");
     next_skip.add_css_class("center-skip");
     next_skip.set_valign(gtk::Align::Center);
 
@@ -347,8 +332,8 @@ fn build_center() -> (gtk::Revealer, gtk::Button) {
     revealer.set_transition_duration(250);
     revealer.set_halign(gtk::Align::Center);
     revealer.set_valign(gtk::Align::Center);
-    // Start revealed to match the controls' initial state (they are shown on
-    // open and fade on idle); `set_revealed` keeps them in sync from then on.
+    // Start revealed to match the controls' initial state (the player opens
+    // paused with nothing loaded); `refresh` owns its visibility from then on.
     revealer.set_reveal_child(true);
     (revealer, button)
 }
@@ -366,26 +351,44 @@ fn click_pair(last: i64, now: i64, gap: i64) -> (i64, bool) {
     }
 }
 
-/// Build the window: video surface with the controls floating over it.
+/// Build the window: GNOME chrome (header bar + bottom playback toolbar)
+/// around the video surface; in fullscreen the chrome retracts and the
+/// playback bar moves over the video as an OSD pill.
 pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::ApplicationWindow {
     let window = adw::ApplicationWindow::new(app);
     window.set_title(Some(i18n::t("app.name").as_str()));
-    // 16:9: the video fills the window (header/playbar are overlays), so a
-    // 16:9 default shows typical content with no letterbox bars.
+    // 16:9 for the content area: the video fills it (the bars are chrome
+    // outside it), so a 16:9 default shows typical content with no
+    // letterbox bars.
     window.set_default_size(1024, 576);
     window.add_css_class("player-window");
 
     let video = VideoArea::new(shared.engine.clone());
-    let (header, title) = build_header(&window);
+
+    let toolbar = adw::ToolbarView::new();
+    toolbar.add_top_bar(&build_header());
     let (playbar, bar) = build_playbar(shared);
+    toolbar.add_bottom_bar(&playbar);
+
+    // The playback bar's fullscreen parent: an empty revealer while
+    // windowed, its parent while fullscreen.
+    let fs_playbar = gtk::Revealer::new();
+    fs_playbar.set_child(None::<&gtk::Widget>);
+    fs_playbar.set_transition_type(gtk::RevealerTransitionType::Crossfade);
+    fs_playbar.set_transition_duration(250);
+    fs_playbar.set_valign(gtk::Align::End);
+    fs_playbar.set_hexpand(true);
+
     let (center, center_button) = build_center();
     let volume_osd = volume::build();
     let seek_handle = seek::attach(&bar.seek, &shared.engine);
 
     let controls = Controls {
-        header: header.clone(),
+        toolbar: toolbar.clone(),
         playbar: playbar.clone(),
-        title,
+        fs_playbar: fs_playbar.clone(),
+        bar_buttons: bar.bar_buttons,
+        play_button: bar.play,
         seek: bar.seek,
         time_label: bar.time_label,
         duration_label: bar.duration_label,
@@ -403,14 +406,14 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
         hover: Rc::new(Cell::new(false)),
         dragging: Rc::new(Cell::new(false)),
         revealed: Rc::new(Cell::new(true)),
+        fullscreen: Rc::new(Cell::new(false)),
         last_motion: Rc::new(Cell::new(now_ms())),
         last_pos: Rc::new(Cell::new((-1.0, -1.0))),
     };
 
     let overlay = gtk::Overlay::new();
     overlay.set_child(Some(&video));
-    overlay.add_overlay(&header);
-    overlay.add_overlay(&playbar);
+    overlay.add_overlay(&fs_playbar);
     // Last: the center button sits above the bars if they ever overlap.
     overlay.add_overlay(&center);
     // The volume OSD on the right edge: an indicator, not a control — it
@@ -425,14 +428,16 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
         .xalign(0.5)
         .yalign(0.5)
         .build();
+    drop_hint.add_css_class("osd");
     drop_hint.add_css_class("drop-hint");
     drop_hint.set_halign(gtk::Align::Fill);
     drop_hint.set_valign(gtk::Align::Fill);
     drop_hint.set_visible(false);
     overlay.add_overlay(&drop_hint);
 
+    toolbar.set_content(Some(&overlay));
     let toasts = adw::ToastOverlay::new();
-    toasts.set_child(Some(&overlay));
+    toasts.set_child(Some(&toolbar));
     window.set_content(Some(&toasts));
     *shared.toasts.borrow_mut() = Some(toasts);
     *shared.controls.borrow_mut() = Some(controls.clone());
@@ -456,9 +461,11 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
     }
     window.add_controller(motion);
 
-    // Resting the pointer on a bar, the center row, or in a popover must not
-    // hide it.
-    for bar in [&header, &playbar, &center] {
+    // Resting the pointer on the floating bar, the center row, or in a
+    // popover must not hide it. (The header is chrome now — it never fades,
+    // so it needs no hover controller.)
+    let hover_targets: Vec<gtk::Widget> = vec![playbar.clone().upcast(), center.clone().upcast()];
+    for bar in &hover_targets {
         let hover_motion = gtk::EventControllerMotion::new();
         {
             let on_enter = controls.clone();
@@ -488,7 +495,7 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
 
     // Double-click on the video toggles fullscreen. Play/pause is *not* bound
     // to clicking the video (that was an easy accidental pause); it lives on
-    // the center button and Space.
+    // the center button, the bar, and Space.
     //
     // Manual pair detection, not `GestureClick`: its multi-press counter
     // keeps climbing while clicks stay inside its timing window (3, 4, 5…),
@@ -531,11 +538,14 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
     // their scroll sequences first, so this never steals them (see `ui::volume`).
     volume::attach_scroll(&window);
 
-    // Keep the fullscreen button's icon honest.
+    // Keep the fullscreen controls honest: the chrome retracts, the bar
+    // moves over the video, and its button shows the way out.
     window.connect_fullscreened_notify({
         let controls = controls.clone();
         move |window| {
-            controls.fullscreen_button.set_icon_name(if window.is_fullscreen() {
+            let fullscreen = window.is_fullscreen();
+            controls.set_fullscreen(fullscreen);
+            controls.fullscreen_button.set_icon_name(if fullscreen {
                 "view-restore-symbolic"
             } else {
                 "view-fullscreen-symbolic"

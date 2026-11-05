@@ -1,8 +1,9 @@
 # Video player
 
 A media player for the [Aelum](https://aelum.dev) desktop: GTK4 + libadwaita on the outside,
-libmpv on the inside. The controls float over the video and fade when the pointer goes idle —
-there is no chrome around the picture. Binary `video-player`, app ID `aelum.videoplayer.Player`.
+libmpv on the inside. A GNOME header bar and a bottom playback toolbar; in fullscreen the same
+controls float over the video and fade when the pointer goes idle.
+Binary `video-player`, app ID `aelum.videoplayer.Player`.
 
 It is a Cargo workspace of three crates with one hard rule between them: the playback core knows
 nothing about GTK, and the UI never calls mpv directly. That seam is the reason the engine can be
@@ -11,8 +12,10 @@ swapped, and the reason the whole pipeline is testable without a display.
 ## What it does
 
 - Plays video and audio through libmpv, drawn into a `GtkGLArea` via the mpv render API.
-- Controls over the video — play/pause, seek bar with chapter ticks, volume, speed presets,
-  fullscreen — that fade out when the pointer is idle and come back on movement.
+- A real GNOME window: header bar with the media title and a primary menu, playback controls
+  in a bottom toolbar — play/pause, seek bar with chapter ticks, volume, speed presets,
+  fullscreen. In fullscreen the toolbar floats over the video and fades when idle.
+- An About dialog (`AdwAboutDialog`) behind the header's info button.
 - Drop a file on the window to open it; the window moves by dragging its header bar.
 - Opening one file builds a playlist from its directory, so `<` / `>` walk to the next title.
   With nothing to walk they step chapters instead.

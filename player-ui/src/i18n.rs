@@ -336,16 +336,17 @@ mod tests {
         let english: HashMap<String, String> =
             serde_json::from_str(json).expect("en-US.json parses");
         for key in [
+            "about.label",
             "app.name",
             "bar.fullscreen",
             "bar.mute",
+            "bar.playPause",
             "bar.speed",
             "bar.volume",
             "center.next",
             "center.prev",
             "dialog.open.title",
             "drop.hint",
-            "header.close",
             "header.open",
             "menu.fullscreen",
             "menu.label",
