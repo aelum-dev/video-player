@@ -17,3 +17,7 @@ PROGRESS.md
 # release.env.example). Never commit: it holds a key id and, for headless
 # signing, a passphrase.
 /release.env
+
+# UI test harness build output (scripts/uitest/build.sh)
+/scripts/uitest/build/
+__pycache__/

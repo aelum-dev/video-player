@@ -323,12 +323,16 @@ README.md, the crate pins in AGENTS.md.
   drags (Hyprland ≥ 0.56).
 - Fractional display scale is the norm on the dev setup: the
   `GLArea::resize` vfunc reports **physical** pixels while client
-  geometry tools (`hyprctl clients -j`) report logical — convert before
-  comparing any on-screen measurement.
-- Test media fixture (silent-tone video, self-contained):
-  `ffmpeg -y -f lavfi -i testsrc2=duration=8:size=640x360:rate=30
-  -f lavfi -i sine=frequency=440:duration=8 -c:v libx264 -pix_fmt yuv420p
-  -c:a aac test.mkv`
+  geometry tools (`hyprctl clients -j`) report logical, and `shot` takes a
+  logical region but returns a physical image — convert before comparing any
+  on-screen measurement.
+- The capture + input-synthesis harness lives in `scripts/uitest/` (build,
+  usage, the test media fixture, worked examples and the caveats each tool
+  carries: `scripts/uitest/README.md`). Two of its facts belong here:
+  driving actions with `gapplication action` changes playback over D-Bus and
+  is **not** pointer or keyboard activity, so it cannot exercise the idle-hide
+  or any hover rule; and `ukey` drops/reorders keystrokes on this setup, so a
+  keyboard path proven with it is not proven.
 - For manual path-handling checks, use real clips whose names contain
   spaces and non-ASCII characters — generated fixtures never exercise
   that path.

@@ -81,12 +81,20 @@ pkill -x video-player                      # GApplication is single-instance: ki
 cargo run -p player-ui                     # GUI — interface tests (screen-capture checks)
                                            # launch WITHOUT a sample file
 cargo run -p player-ui -- some-video.mkv   # GUI with a file, for manual playback checks
+./scripts/uitest/build.sh                  # the UI harness → scripts/uitest/build/
+./scripts/uitest/build/shot /tmp/videoplayer/out.ppm X Y W H  # capture a region (logical px)
+python3 scripts/uitest/pxstats.py /tmp/videoplayer/out.ppm X Y W H  # objective read of a rect
+./scripts/uitest/build/uiclick X Y N       # move the real cursor, N left clicks
 ./scripts/build-pkg.sh                     # Arch .pkg.tar.zst + sha256 + GPG .asc → dist/
 ../repo/publish-repo.sh                    # publish the newest dist/ package to the [aelum] repo
 ```
 
-More (display-path checks, D-Bus driving of a running instance, Docker):
-`PROGRESS.md`, section "Commands".
+The harness in `scripts/uitest/` is how on-screen claims get settled: capture
+(`shot` + `pxstats.py`) and real input synthesis (`uiclick`/`udrag`/`uwheel`/
+`ukey`). Coordinates, the test fixture, worked examples and the caveats each tool
+carries: `scripts/uitest/README.md`; everything it writes goes to
+`/tmp/videoplayer/`. More (D-Bus driving of a running instance,
+Docker): `PROGRESS.md`, section "Commands".
 
 ## Conventions
 
@@ -101,4 +109,4 @@ More (display-path checks, D-Bus driving of a running instance, Docker):
 - Pure decision logic belongs in `player-core` with unit tests, not in UI
   code — see `state.rs` for the shape.
 - A claim about on-screen behavior is settled by screen capture, not by
-  argument (tooling: PROGRESS.md, "Screen capture tooling").
+  argument (tooling: `scripts/uitest/`).
