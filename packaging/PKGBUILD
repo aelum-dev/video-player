@@ -9,7 +9,7 @@
 pkgname=aelum-video-player
 # Keep in sync with [workspace.package].version in the root Cargo.toml —
 # scripts/build-pkg.sh fails the build when the two drift apart.
-pkgver=0.1.2
+pkgver=0.1.3
 pkgrel=1
 pkgdesc='GTK4/libadwaita media player over libmpv'
 arch=('x86_64')
