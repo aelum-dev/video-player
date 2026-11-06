@@ -29,6 +29,15 @@
     <binary>video-player</binary>
   </provides>
   <releases>
+    <release version="0.1.4" date="2026-11-06">
+      <description>
+        <ul>
+          <li>The buttons beside the play button now skip chapters; the toolbar's skip buttons switch files.</li>
+          <li>Those chapter buttons appear only for a title that actually has chapters.</li>
+          <li>Skip and chapter tooltips now name exactly what each control does, in all 28 languages.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.3" date="2026-11-06">
       <description>
         <ul>
