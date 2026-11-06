@@ -61,19 +61,22 @@ pub trait PlaybackEngine: Send + Sync {
     fn set_muted(&self, muted: bool) -> Result<()>;
     /// Playback speed multiplier (1.0 is normal speed).
     fn set_speed(&self, speed: f64) -> Result<()>;
-    /// Jump `delta` chapters (-1 previous, +1 next).
+    /// Jump `delta` chapters (-1 previous, +1 next) **inside** the current
+    /// title. The buttons on the video and Ctrl+←/→; a title without chapters
+    /// answers with an error. Changing the file is [`playlist_step`].
     fn chapter_step(&self, delta: i32) -> Result<()>;
     /// Chapter markers of the current title; empty when there are none.
     fn chapters(&self) -> Vec<Chapter>;
     /// Jump `delta` playlist entries (-1 previous file, +1 next file).
     ///
+    /// This is what the skip controls are: the playbar's `<` `>` pair and the
+    /// `<` / `>` keys. They change the **file**; what the buttons on the video
+    /// do is `chapter_step`.
+    ///
     /// The playlist is populated by mpv's directory autoload (see
-    /// [`reassert_app_options`]). At its ends the step errors and changes
-    /// nothing — log it and move on.
+    /// [`reassert_app_options`]). At its ends — and for a file alone in its
+    /// directory — the step errors and changes nothing: log it and move on.
     fn playlist_step(&self, delta: i32) -> Result<()>;
-    /// The skip controls: walk the playlist when there is one to walk,
-    /// otherwise step chapters (see [`skip_target`]).
-    fn skip_step(&self, delta: i32) -> Result<()>;
     fn stop(&self) -> Result<()>;
     fn position(&self) -> Option<f64>;
     fn duration(&self) -> Option<f64>;
@@ -82,27 +85,6 @@ pub trait PlaybackEngine: Send + Sync {
     fn observe(&self, name: &str, format: PropertyFormat) -> Result<()>;
     /// Drain pending events (pull-based; call from the shell's loop).
     fn pump_events(&self) -> Vec<PlayerEvent>;
-}
-
-/// What the skip controls (`<` / `>`, the playbar's skip buttons) act on.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SkipTarget {
-    Playlist,
-    Chapters,
-}
-
-/// The decision, pure so it is testable without mpv.
-///
-/// Decided per press from the playlist itself, not from the config: the
-/// honest question is "is there a playlist to walk". With directory autoload
-/// off — or a file alone in its directory — there is one entry and nothing
-/// to walk, so the buttons keep working on chapters instead of going dead.
-pub fn skip_target(playlist_count: i64) -> SkipTarget {
-    if playlist_count >= 2 {
-        SkipTarget::Playlist
-    } else {
-        SkipTarget::Chapters
-    }
 }
 
 /// Enable reading the user's mpv configuration — `~/.config/mpv/mpv.conf`
@@ -310,16 +292,6 @@ impl PlaybackEngine for MpvEngine {
         Ok(())
     }
 
-    fn skip_step(&self, delta: i32) -> Result<()> {
-        let count = self.inner.get_property::<i64>("playlist-count").unwrap_or(0);
-        match skip_target(count) {
-            SkipTarget::Playlist => self.playlist_step(delta),
-            // The usual case for the chapter leg: no chapters either, so
-            // mpv answers with an error the front-end logs and ignores.
-            SkipTarget::Chapters => self.chapter_step(delta),
-        }
-    }
-
     fn set_volume(&self, percent: f64) -> Result<()> {
         self.inner.set_volume(percent)?;
         Ok(())
@@ -393,17 +365,7 @@ pub fn parse_chapters(json: &str) -> Vec<Chapter> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_chapters, skip_target, SkipTarget};
-
-    #[test]
-    fn skip_walks_the_playlist_only_when_there_is_one() {
-        // Nothing or a single entry: nothing to walk — chapters take over.
-        assert_eq!(skip_target(0), SkipTarget::Chapters);
-        assert_eq!(skip_target(1), SkipTarget::Chapters);
-        // Two or more: the skip controls are file controls.
-        assert_eq!(skip_target(2), SkipTarget::Playlist);
-        assert_eq!(skip_target(100), SkipTarget::Playlist);
-    }
+    use super::parse_chapters;
 
     #[test]
     fn chapter_json_parses_titles_and_times() {

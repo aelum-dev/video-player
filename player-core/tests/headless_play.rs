@@ -118,7 +118,7 @@ fn a_title_opened_without_autoplay_waits_paused_on_its_first_frame() {
 
 /// The directory-playlist feature end to end: opening one file makes mpv
 /// build a playlist of the same-type files in its directory
-/// (`autocreate-playlist=same`), and `skip_step` walks it — what the
+/// (`autocreate-playlist=same`), and `playlist_step` walks it — what the
 /// playbar's skip buttons and the < / > keys do. The observed `path`
 /// property is what tells the front-end which file is now on screen.
 #[test]
@@ -175,16 +175,16 @@ fn one_file_opens_a_directory_playlist_that_steps_forward_and_back() {
     }
     assert_eq!(count(), 3, "opening one file never populated the directory");
 
-    engine.skip_step(1).expect("next");
+    engine.playlist_step(1).expect("next");
     assert!(wait_path("c.wav"), "next did not land on c.wav");
-    engine.skip_step(-1).expect("prev");
+    engine.playlist_step(-1).expect("prev");
     assert!(wait_path("b.wav"), "prev did not land back on b.wav");
 
     // Stepping past the first entry stays on it: mpv's default `weak` flag
     // answers the command with an error and changes nothing (the front-end
     // logs and ignores it), so the controls never need disabling.
-    engine.skip_step(-1).expect("prev");
-    let _ = engine.skip_step(-1);
+    engine.playlist_step(-1).expect("prev");
+    let _ = engine.playlist_step(-1);
     assert_eq!(
         engine.inner().get_property::<i64>("playlist-pos").unwrap_or(-1),
         0,

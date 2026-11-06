@@ -232,6 +232,9 @@ fn setup_actions(app: &adw::Application, shared: &Shared) {
     });
     app.add_action(&seek_rel);
 
+    // Chapter jumps: the buttons on the video, beside the play button, and
+    // Ctrl+←/→. They act inside the current title — the skip actions below
+    // are what change the file.
     for (name, delta) in [("chapter-prev", -1), ("chapter-next", 1)] {
         let action = gtk::gio::SimpleAction::new(name, None);
         let engine = shared.engine.clone();
@@ -244,17 +247,18 @@ fn setup_actions(app: &adw::Application, shared: &Shared) {
         app.add_action(&action);
     }
 
-    // The skip controls. With directory autoload on (the default) mpv has
-    // populated a playlist when the current file was opened, and these walk
-    // it; with it off — or a file alone in its directory — the core decides
-    // per press and steps chapters instead, so the buttons never go dead.
+    // The skip controls: previous/next file in the directory. The playbar's
+    // `<` `>` pair and the `<` / `>` keys carry these; the buttons on the
+    // video step chapters (above) instead. With nothing to walk (a lone file,
+    // or `autocreate-playlist=no` in the user's mpv.conf) the step errors and
+    // changes nothing.
     for (name, delta) in [("skip-prev", -1), ("skip-next", 1)] {
         let action = gtk::gio::SimpleAction::new(name, None);
         let engine = shared.engine.clone();
         action.connect_activate(move |_, _| {
-            if let Err(err) = engine.skip_step(delta) {
-                // Nothing to walk in either direction (no playlist, no
-                // chapters): mpv's error, logged and ignored.
+            if let Err(err) = engine.playlist_step(delta) {
+                // Nothing to walk in this direction: mpv's error, logged and
+                // ignored; the current title keeps playing.
                 tracing::debug!(%err, "skip step failed");
             }
         });

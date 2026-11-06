@@ -61,6 +61,11 @@ pub struct Controls {
     /// the video; `refresh` owns its visibility (see there).
     pub(super) center: gtk::Revealer,
     pub(super) center_button: gtk::Button,
+    /// The chapter jumps flanking the center play button. `set_chapters` shows
+    /// them only for a title that has chapters to jump between, so the row
+    /// never offers a button that cannot do anything.
+    pub(super) center_prev_chapter: gtk::Button,
+    pub(super) center_next_chapter: gtk::Button,
     /// Right-edge volume OSD: shown from `refresh` whenever the folded
     /// volume changes, whatever moved it (wheel, keys, the popover slider).
     pub(super) volume_osd: VolumeOsd,
@@ -220,7 +225,8 @@ impl Controls {
         self.pin_button.set_active(on);
     }
 
-    /// Draw chapter ticks on the seek slider.
+    /// Draw chapter ticks on the seek slider, and show the on-video chapter
+    /// jumps for a title that actually has chapters.
     pub fn set_chapters(&self, chapters: &[Chapter]) {
         self.seek.clear_marks();
         for chapter in chapters {
@@ -229,6 +235,11 @@ impl Controls {
                 self.seek.add_mark(chapter.time, gtk::PositionType::Bottom, None);
             }
         }
+        // One marker is the start of an unmarked title: `add chapter ±1` has
+        // nowhere to go, so two is the first list worth buttons for.
+        let jumpable = chapters.len() >= 2;
+        self.center_prev_chapter.set_visible(jumpable);
+        self.center_next_chapter.set_visible(jumpable);
     }
 
     /// Sync every control from the folded playback state.

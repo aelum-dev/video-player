@@ -19,8 +19,9 @@ swapped, and the reason the whole pipeline is testable without a display.
   workspaces — the player as a picture-in-picture while another window is the work.
 - An About dialog (`AdwAboutDialog`) behind the header's info button.
 - Drop a file on the window to open it; the window moves by dragging its header bar.
-- Opening one file builds a playlist from its directory, so `<` / `>` walk to the next title.
-  With nothing to walk they step chapters instead.
+- Opening one file builds a playlist from its directory, so the toolbar's skip buttons and the
+  `<` / `>` keys switch to the previous/next **file**. The buttons beside the play button on the
+  video step **chapters** instead, and are only drawn for a title that has them.
 - Reopens where you left off: the play button starts the last title at the position it stopped at.
 - Follows the system light/dark variant, and picks up the desktop palette live when it is recolored.
 - Reads your own `~/.config/mpv/mpv.conf` — hardware decoding, subtitles, audio language, all of it.

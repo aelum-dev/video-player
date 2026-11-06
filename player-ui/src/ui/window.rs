@@ -116,18 +116,18 @@ fn build_playbar(shared: &Shared) -> (gtk::Box, PlayBar) {
         &i18n::t("bar.playPause"),
     );
 
-    // Skip to the previous/next file in the directory; with no playlist to
-    // walk the core steps chapters instead (see `skip_target`). The same
-    // actions as the center row's buttons and the `<` / `>` keys.
+    // Previous/next **file** in the directory — the bar is the file control,
+    // the same actions the `<` / `>` keys carry. The buttons beside the
+    // on-video play button step chapters instead.
     let prev = flat_button(
         "media-skip-backward-symbolic",
         Some("app.skip-prev"),
-        &i18n::t("center.prev"),
+        &i18n::t("bar.prevFile"),
     );
     let next = flat_button(
         "media-skip-forward-symbolic",
         Some("app.skip-next"),
-        &i18n::t("center.next"),
+        &i18n::t("bar.nextFile"),
     );
 
     let time_label = gtk::Label::new(Some("0:00"));
@@ -306,51 +306,66 @@ struct PlayBar {
     fullscreen_button: gtk::Button,
 }
 
-/// The big play/pause button in the middle of the video, with the
-/// prev/next skip buttons flanking it. It is an `.osd .circular` button —
-/// libadwaita's own over-content control (dark disc, white ink, its own
-/// hover/press states) — and rides with the interface: faded whenever that is,
-/// and the only control left standing when nothing is loaded (the idle-hide
-/// never hides that state — see `Controls::idle_tick`).
-fn build_center() -> (gtk::Revealer, gtk::Button) {
-    let button = gtk::Button::builder()
+/// The big play/pause button in the middle of the video, with the chapter
+/// jumps flanking it. Every button is an `.osd .circular` one — libadwaita's
+/// own over-content control (dark disc, white ink, its own hover/press states)
+/// — and the row rides with the interface: faded whenever that is, and the
+/// play button the only control left standing when nothing is loaded (the
+/// idle-hide never hides that state — see `Controls::idle_tick`).
+///
+/// The chapter buttons start hidden and `Controls::set_chapters` shows them:
+/// a title without at least two markers has nowhere to jump, and a button
+/// that cannot do anything is not drawn.
+struct CenterRow {
+    revealer: gtk::Revealer,
+    play: gtk::Button,
+    prev_chapter: gtk::Button,
+    next_chapter: gtk::Button,
+}
+
+fn build_center() -> CenterRow {
+    let play = gtk::Button::builder()
         .icon_name(Controls::play_icon(true))
         .action_name("app.play-pause")
         .build();
-    button.add_css_class("osd");
-    button.add_css_class("circular");
-    button.add_css_class("center-play");
+    play.add_css_class("osd");
+    play.add_css_class("circular");
+    play.add_css_class("center-play");
 
-    // The same skip actions as the bar's, beside the play button: these are
-    // the reach-for-them-while-watching controls, and the center row is
-    // where the eyes already are. `<`/`>` keep the same actions.
+    // Previous/next **chapter**, beside the play button: these are the
+    // reach-for-them-while-watching controls, and the row is where the eyes
+    // already are. They carry `app.chapter-prev/next` (Ctrl+←/→), and their
+    // icons are the *seek* pair rather than the bar's *skip* pair — inside
+    // the title versus to another file is the difference being drawn.
     //
     // `valign: center` is not decoration: the row is as tall as the 92px
     // play button, and a box stretches its children to fill vertically —
-    // the skip buttons' press box would be a 56x92 ellipse, not a circle.
-    let prev_skip = gtk::Button::builder()
-        .icon_name("media-skip-backward-symbolic")
-        .action_name("app.skip-prev")
-        .tooltip_text(i18n::t("center.prev"))
+    // the chapter buttons' press box would be a 56x92 ellipse, not a circle.
+    let prev_chapter = gtk::Button::builder()
+        .icon_name("media-seek-backward-symbolic")
+        .action_name("app.chapter-prev")
+        .tooltip_text(i18n::t("center.prevChapter"))
         .build();
-    prev_skip.add_css_class("osd");
-    prev_skip.add_css_class("circular");
-    prev_skip.add_css_class("center-skip");
-    prev_skip.set_valign(gtk::Align::Center);
-    let next_skip = gtk::Button::builder()
-        .icon_name("media-skip-forward-symbolic")
-        .action_name("app.skip-next")
-        .tooltip_text(i18n::t("center.next"))
+    prev_chapter.add_css_class("osd");
+    prev_chapter.add_css_class("circular");
+    prev_chapter.add_css_class("center-skip");
+    prev_chapter.set_valign(gtk::Align::Center);
+    prev_chapter.set_visible(false);
+    let next_chapter = gtk::Button::builder()
+        .icon_name("media-seek-forward-symbolic")
+        .action_name("app.chapter-next")
+        .tooltip_text(i18n::t("center.nextChapter"))
         .build();
-    next_skip.add_css_class("osd");
-    next_skip.add_css_class("circular");
-    next_skip.add_css_class("center-skip");
-    next_skip.set_valign(gtk::Align::Center);
+    next_chapter.add_css_class("osd");
+    next_chapter.add_css_class("circular");
+    next_chapter.add_css_class("center-skip");
+    next_chapter.set_valign(gtk::Align::Center);
+    next_chapter.set_visible(false);
 
     let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-    row.append(&prev_skip);
-    row.append(&button);
-    row.append(&next_skip);
+    row.append(&prev_chapter);
+    row.append(&play);
+    row.append(&next_chapter);
 
     let revealer = gtk::Revealer::new();
     revealer.set_child(Some(&row));
@@ -361,7 +376,12 @@ fn build_center() -> (gtk::Revealer, gtk::Button) {
     // Start revealed to match the controls' initial state (the player opens
     // paused with nothing loaded); `refresh` owns its visibility from then on.
     revealer.set_reveal_child(true);
-    (revealer, button)
+    CenterRow {
+        revealer,
+        play,
+        prev_chapter,
+        next_chapter,
+    }
 }
 
 /// Double-click pair state machine: `last` is the previous press time
@@ -406,7 +426,7 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
     fs_playbar.set_valign(gtk::Align::End);
     fs_playbar.set_hexpand(true);
 
-    let (center, center_button) = build_center();
+    let center = build_center();
     let volume_osd = volume::build();
     let seek_handle = seek::attach(&bar.seek, &shared.engine);
 
@@ -426,8 +446,10 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
         speed_scale: bar.speed_scale,
         fullscreen_button: bar.fullscreen_button,
         pin_button: bar.pin_button,
-        center: center.clone(),
-        center_button: center_button.clone(),
+        center: center.revealer.clone(),
+        center_button: center.play.clone(),
+        center_prev_chapter: center.prev_chapter.clone(),
+        center_next_chapter: center.next_chapter.clone(),
         volume_osd: volume_osd.clone(),
         seeking: seek_handle.seeking,
         seek_settle: seek_handle.seek_settle,
@@ -442,8 +464,8 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
     let overlay = gtk::Overlay::new();
     overlay.set_child(Some(&video));
     overlay.add_overlay(&fs_playbar);
-    // Last: the center button sits above the bars if they ever overlap.
-    overlay.add_overlay(&center);
+    // Last: the center row sits above the bars if they ever overlap.
+    overlay.add_overlay(&center.revealer);
     // The volume OSD on the right edge: an indicator, not a control — it
     // appears on any volume change and fades again (see `ui::volume`).
     overlay.add_overlay(volume_osd.revealer());
@@ -495,7 +517,7 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
     let hover_targets: Vec<gtk::Widget> = vec![
         header.upcast(),
         playbar.clone().upcast(),
-        center.clone().upcast(),
+        center.revealer.clone().upcast(),
     ];
     for bar in &hover_targets {
         let hover_motion = gtk::EventControllerMotion::new();

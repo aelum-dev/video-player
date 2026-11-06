@@ -14,7 +14,7 @@ pub mod state;
 
 pub use engine::{
     Chapter, EndReason, MpvEngine, PlaybackEngine, PlayerEvent, PropertyFormat, PropertyValue,
-    SkipTarget, parse_chapters, skip_target,
+    parse_chapters,
 };
 pub use last_played::LastPlayed;
 pub use state::PlaybackState;
