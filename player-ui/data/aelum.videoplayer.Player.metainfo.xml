@@ -29,6 +29,13 @@
     <binary>video-player</binary>
   </provides>
   <releases>
+    <release version="0.1.5" date="2026-11-08">
+      <description>
+        <ul>
+          <li>New app icon: a stacked-cards design in the desktop's dark color scheme.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.4" date="2026-11-06">
       <description>
         <ul>
