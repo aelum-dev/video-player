@@ -1,23 +1,73 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- Aelum brand palette (website base.css): dark #1d1b20, accent #834c74, lilac #cfbdfe.
-       The play mark is the md-play glyph (U+F040A) extracted from the same
-       SymbolsNerdFont the website's icon set is built from (scripts/icons.py). -->
+  <!-- Stacked-cards shape in the Dux Shell dark scheme (website base.css):
+       accent #cfbdfe, deep purple #36275d, surfaces toward #1d1b20.
+       Depth comes from the tilted back card; light comes from above. -->
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#2b272e"/>
-      <stop offset="1" stop-color="#1d1b20"/>
+    <linearGradient id="tile" x1="0.15" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#7d5fc0"/>
+      <stop offset="0.45" stop-color="#5e3fa6"/>
+      <stop offset="1" stop-color="#36275d"/>
     </linearGradient>
-    <linearGradient id="play" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#cfbdfe"/>
-      <stop offset="1" stop-color="#834c74"/>
+    <linearGradient id="back" x1="0.15" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#a894dd"/>
+      <stop offset="1" stop-color="#7d63b8"/>
     </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.5"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="play" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.5" stop-color="#ece2ff"/>
+      <stop offset="1" stop-color="#cfbdfe"/>
+    </linearGradient>
+    <linearGradient id="prog" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f5efff"/>
+      <stop offset="1" stop-color="#cfbdfe"/>
+    </linearGradient>
+    <filter id="drop" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#1c1430" flood-opacity="0.45"/>
+    </filter>
+    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#1c1430" flood-opacity="0.3"/>
+    </filter>
+    <filter id="markshadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#1c1430" flood-opacity="0.35"/>
+    </filter>
+    <filter id="bloom" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+    <filter id="thumbglow" x="-120%" y="-120%" width="340%" height="340%">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
   </defs>
-  <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#bg)"/>
-  <rect x="8.5" y="8.5" width="111" height="111" rx="25.5" fill="none" stroke="#cfbdfe" stroke-opacity="0.18"/>
-  <!-- md-play outline, centered on the canvas. -->
-  <path d="M40.44 30V90L87.56 60Z" fill="url(#play)"/>
-  <!-- Seek line at the bottom, like the playbar over the video. -->
-  <rect x="28" y="100" width="72" height="4" rx="2" fill="#ffffff" fill-opacity="0.18"/>
-  <rect x="28" y="100" width="44" height="4" rx="2" fill="#834c74"/>
-  <circle cx="72" cy="102" r="4.5" fill="#cfbdfe"/>
+
+  <ellipse cx="64" cy="106" rx="42" ry="13" fill="#7d5fc0" opacity="0.5" filter="url(#bloom)"/>
+
+  <!-- back card, tilted -->
+  <g filter="url(#soft)" transform="rotate(-8 74 52)">
+    <rect x="38" y="16" width="72" height="72" rx="10" fill="url(#back)"/>
+  </g>
+
+  <!-- front player card -->
+  <g filter="url(#drop)">
+    <rect x="18" y="32" width="76" height="76" rx="10" fill="url(#tile)"/>
+  </g>
+  <rect x="18" y="32" width="76" height="76" rx="10" fill="url(#gloss)"/>
+  <rect x="18.75" y="32.75" width="74.5" height="74.5" rx="9.25" fill="none" stroke="url(#rim)" stroke-width="1.5"/>
+
+  <g filter="url(#markshadow)">
+    <path d="M44 50 L44 90 L74 70 Z" fill="url(#play)" stroke="url(#play)" stroke-width="3" stroke-linejoin="round"/>
+  </g>
+
+  <!-- seek line along the bottom of the front card -->
+  <rect x="30" y="98" width="52" height="4" rx="2" fill="#ffffff" fill-opacity="0.28"/>
+  <rect x="30" y="98" width="28" height="4" rx="2" fill="url(#prog)"/>
+  <circle cx="58" cy="100" r="5" fill="#cfbdfe" opacity="0.6" filter="url(#thumbglow)"/>
+  <circle cx="58" cy="100" r="3.2" fill="#ffffff"/>
 </svg>
