@@ -7,30 +7,33 @@
  * hot-reloaded by theme.rs); the playback bar carries the `.toolbar` class
  * while it is chrome, so the theme sizes it.
  *
- * What remains is the window background (the letterbox and, through the
- * theme's transparent bars, the chrome's backdrop) and what floats *over
- * the video*: the fullscreen playback pill, the center play row, the volume
- * OSD and the drop hint. Those controls keep libadwaita's over-content
- * look — dark shell, white ink — but the shell is restated here rather
- * than trusted to the theme's `.osd` fills, which measure absent on real
- * screens while the same rules' ink lands. `data/style.css` adds the shell,
- * the shape (radii, insets), touch-sized targets, and two translucent
- * troughs that must stay visible over any picture.
+ * What remains is the window background (the chrome's backdrop, through the
+ * theme's transparent bars), the letterbox, and what floats *over the video*:
+ * the fullscreen playback pill, the center play row, the volume OSD and the
+ * drop hint. Those controls keep libadwaita's over-content look — dark shell,
+ * white ink — but the shell is restated here rather than trusted to the
+ * theme's `.osd` fills, which measure absent on real screens while the same
+ * rules' ink lands. `data/style.css` adds the shell, the shape (radii,
+ * insets), touch-sized targets, and two translucent troughs that must stay
+ * visible over any picture.
  */
 
-/* The window background: in dark mode cinema black — a pale band above and
-   below the film is not what people expect there. In light mode it follows
-   @window_bg_color: the theme's bars are transparent here, the GL sink
-   clears with alpha 0, and mpv paints no background of its own
-   (engine.rs), so this one color is the letterbox and the chrome backdrop —
-   and the dark over-video controls would vanish over a black band in an
-   otherwise light window. `@media (prefers-color-scheme)` is what libadwaita
-   1.10 itself switches variants with — the window `.light`/`.dark` classes
-   are gone from its stylesheet. */
+/* The window background: in dark mode cinema black. In light mode it follows
+   @window_bg_color: the theme's bars are transparent there, so this one color
+   is the chrome's backdrop and the bars' controls are the theme's light ones.
+   `@media (prefers-color-scheme)` is what libadwaita 1.10 itself switches
+   variants with — the window `.light`/`.dark` classes are gone from its
+   stylesheet. */
 window.background.player-window {
     background-color: black;
 }
 
+/* The video surface, and with it the letterbox: cinema black in both modes —
+   a pale band beside the film is not what people expect. The GL sink clears
+   with alpha 0 and mpv paints no background of its own (engine.rs), so this
+   is the color that shows where the picture does not reach. The over-video
+   controls are unaffected: their ink is white, which reads on black as well
+   as on any frame. */
 .video-area {
     background: black;
 }
@@ -38,10 +41,6 @@ window.background.player-window {
 @media (prefers-color-scheme: light) {
     window.background.player-window {
         background-color: @window_bg_color;
-    }
-
-    .video-area {
-        background: @window_bg_color;
     }
 }
 
@@ -120,7 +119,8 @@ button.aelum-pin:checked:hover {
 /* Big play/pause in the middle of the video and the skip buttons flanking
    it: `.osd .circular` buttons — libadwaita's over-content control, its
    hover/press states included; the disc itself comes from the shell rules
-   above. Only the sizes are ours: the play button is the obvious target,
+   above, and over a bright frame it is what makes the white glyph read.
+   Only the sizes are ours: the play button is the obvious target,
    the skips one step below it. */
 button.center-play {
     min-height: 92px;
@@ -142,21 +142,14 @@ button.center-skip {
    video with a dashed outline and say what the drop will do. It is an
    overlay child drawn over the video (a window-level CSS outline would be
    painted under the GLArea), shown only between drag-enter and
-   drag-leave/drop. White ink on the dark letterbox; in light mode both
-   the frame and the ink follow that lighter background instead. */
+   drag-leave/drop. White ink: the surface it frames is the letterbox, black
+   in both modes. */
 label.drop-hint {
     margin: 14px;
     border: 3px dashed alpha(white, 0.85);
     border-radius: 10px;
     font-weight: 600;
     font-size: 1.4em;
-}
-
-@media (prefers-color-scheme: light) {
-    label.drop-hint {
-        border-color: alpha(black, 0.85);
-        color: alpha(black, 0.9);
-    }
 }
 
 /* Volume OSD on the right edge: an `.osd` capsule holding a LevelBar — an
