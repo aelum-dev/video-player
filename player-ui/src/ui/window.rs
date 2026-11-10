@@ -76,6 +76,15 @@ fn build_header() -> adw::HeaderBar {
     );
     header.pack_start(&open);
 
+    // pack_end places from the right edge inward, so the first one packed is
+    // the outermost corner: the info button there, the primary menu next to it.
+    let about = flat_button(
+        "help-about-symbolic",
+        Some("app.about"),
+        &i18n::t("about.label"),
+    );
+    header.pack_end(&about);
+
     let menu_model = gtk::gio::Menu::new();
     menu_model.append(Some(&i18n::t("menu.open")), Some("app.open"));
     menu_model.append(Some(&i18n::t("menu.fullscreen")), Some("app.fullscreen"));
@@ -86,16 +95,7 @@ fn build_header() -> adw::HeaderBar {
         .build();
     menu.add_css_class("flat");
     menu.set_menu_model(Some(&menu_model));
-    // pack_end places from the right edge inward: the primary menu sits
-    // outermost, as in every GNOME app.
     header.pack_end(&menu);
-
-    let about = flat_button(
-        "help-about-symbolic",
-        Some("app.about"),
-        &i18n::t("about.label"),
-    );
-    header.pack_end(&about);
 
     header
 }
