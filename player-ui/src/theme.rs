@@ -16,11 +16,14 @@
 //!   from the same DMS switch, so they stay in step.
 //! * **The controls over the video** — the fullscreen playback pill, the
 //!   center play row, the volume OSD and the drop hint wear libadwaita's
-//!   own `.osd` style class: dark shell, white ink and the over-video
-//!   accent are all theme-drawn. `data/style.css` adds only shape and
-//!   sizes for those, plus two translucent troughs that must stay visible
-//!   over any picture. The windowed chrome (header bar, bottom toolbar) is
-//!   plain libadwaita and gets no app rules at all.
+//!   own `.osd` style class: white ink and the over-video accent are
+//!   theme-drawn. The theme's `.osd` *fills* measured absent on real
+//!   screens though (ink lands, background does not), so `data/style.css`
+//!   restates those shells at the theme's own values and adds shape,
+//!   sizes, and two translucent troughs that must stay visible over any
+//!   picture. The window background — the letterbox and the bars'
+//!   backdrop — is the app's too: cinema black in dark, `@window_bg_color`
+//!   in light.
 //!
 //! SIGHUP is ignored — see [`ignore_hangup`].
 
@@ -187,6 +190,9 @@ mod tests {
         "window_fg_color",
     ];
 
+    /// At-rule keywords `@` can legitimately start in this stylesheet.
+    const AT_RULES: &[&str] = &["media", "import", "define", "supports"];
+
     /// Every color in that stylesheet is a palette *name*, so a typo there is
     /// the easy way to break the theme — and the CSS parser says nothing about
     /// an unknown name (it resolves lazily, and nothing resolves it without a
@@ -201,7 +207,10 @@ mod tests {
                 .chars()
                 .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
                 .collect();
-            if !name.is_empty() && !PALETTE_NAMES.contains(&name.as_str()) {
+            if name.is_empty() || AT_RULES.contains(&name.as_str()) {
+                continue;
+            }
+            if !PALETTE_NAMES.contains(&name.as_str()) {
                 unknown.push(format!("@{name}"));
             }
         }

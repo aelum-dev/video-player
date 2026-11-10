@@ -104,11 +104,12 @@ before trusting a version-specific claim.
   libadwaita — the hand-rolled `gdk::Toplevel::begin_move` header-drag was
   a workaround for a window that had none and is gone.
 - `.osd` is a first-class theme scope (settled from the compiled stylesheet
-  of /usr/lib/libadwaita-1.so): the container gets a dark translucent shell
-  + white ink and flips `--accent-bg-color` to white/75% (its over-video
-  accent — scale fills and LevelBar blocks follow it automatically);
-  `button.osd` and `menubutton.osd > button` carry their own dark fill and
-  hover/active/checked states, so over-video buttons need no app CSS.
+  of /usr/lib/libadwaita-1.so): it flips `--accent-bg-color` to white/75%
+  (its over-video accent — scale fills and LevelBar blocks follow it
+  automatically) and its ink rules apply. Its **background fills measure
+  absent on this box** (captured: white ink lands, no dark shell — in a
+  stock probe app too), so the over-video shells are restated in
+  `data/style.css` at the theme's own values.
 - The theme's scale knob is 20 px (`scale > trough > slider` min-width) —
   the seek click-to-position mapping (`KNOB_HALF_PX`) follows that.
 - `AdwAboutDialog` (libadwaita 1.5+): fields only, it draws itself; present
@@ -181,9 +182,13 @@ before trusting a version-specific claim.
   `unsafe` in edition 2024).
 - Named palette colors are usable from app CSS: `alpha(@card_bg_color, 0.75)`
   resolves against whatever palette is active (user's or libadwaita's).
-- libadwaita tags the window node with `.dark`/`.light` (usable to scope
-  custom CSS), and `AdwStyleManager` follows the system via the portal Settings
-  interface — on this box xdg-desktop-portal + the **gtk** backend read
+- Variant scoping in app CSS: libadwaita 1.10's compiled stylesheet has **no
+  window `.light`/`.dark` classes** (older releases tagged them; 1.10 switched
+  itself with `@media (prefers-color-scheme: dark)` blocks). App CSS scopes a
+  variant with the same feature — `@media (prefers-color-scheme: light)`
+  matches exactly when the style manager is light (measured by capture).
+  `AdwStyleManager` follows the system via the portal Settings interface — on
+  this box xdg-desktop-portal + the **gtk** backend read
   `gsettings org.gnome.desktop.interface color-scheme` (`prefer-dark` flips the
   app live, no restart). `StyleManager::set_color_scheme(ForceLight/ForceDark/
   Default)` overrides.
@@ -246,6 +251,10 @@ before trusting a version-specific claim.
   bind `GL_READ_FRAMEBUFFER` (0x8CA8) first; and rebind the toolkit's FBO after the
   call so the compositor's state cache stays truthful.
 - **`flip_y=true` for GTK's GLArea** (top-left-origin texture). `false` = upside down.
+- GTK composites the GLArea's FBO **with its alpha**: clearing alpha 0 and setting
+  mpv `background-color=#00000000` makes the area outside the frame show the
+  GLArea's CSS background — the letterbox becomes a themed, live-switching CSS
+  color instead of a GL-pinned black (verified by capture in both variants).
 - `load_when_ready` is the right call for the first load: `loadfile` before a render
   context exists fails VO init and **drops the video track** (black window, audio
   plays). After attach it degrades to a plain `load`. `Engine::has_render()` is the

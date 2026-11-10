@@ -107,7 +107,11 @@ mod imp {
 
     impl GLAreaImpl for VideoArea {
         fn render(&self, _context: &gtk::gdk::GLContext) -> glib::Propagation {
-            gllink::clear_color(0.0, 0.0, 0.0, 1.0);
+            // Transparent clear: what the frame does not cover shows the
+            // widget's themed background (style.css), which follows the
+            // system light/dark. An opaque black clear here would pin the
+            // letterbox to black in every theme.
+            gllink::clear_color(0.0, 0.0, 0.0, 0.0);
             let _ = gllink::clear(gllink::COLOR_BUFFER_BIT);
 
             let Some(engine) = self.engine.borrow().clone() else {

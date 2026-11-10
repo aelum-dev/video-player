@@ -1,25 +1,32 @@
 /* Video player application styles.
  *
  * Everything that is chrome — the header bar, the bottom playback toolbar,
- * their menus, popovers and dialogs — is plain libadwaita and gets no rule
- * here. It follows the system dark/light setting and the user's palette on
- * its own (mirrored + hot-reloaded by theme.rs), and the playback bar
- * carries the `.toolbar` class while it is chrome, so the theme sizes it.
+ * their menus, popovers and dialogs — gets no rule here beyond the window
+ * background below. Its controls are plain libadwaita and follow the system
+ * dark/light setting and the user's palette on their own (mirrored +
+ * hot-reloaded by theme.rs); the playback bar carries the `.toolbar` class
+ * while it is chrome, so the theme sizes it.
  *
- * What remains is only what floats *over the video*: the fullscreen
- * playback pill, the center play row, the volume OSD and the drop hint.
- * Their dark shells and white ink come from libadwaita's own `.osd`
- * style class — the HIG's answer for controls over content, the same one
- * Loupe and GNOME's own players use — and inside `.osd` the theme flips
- * the accent to its over-video variant on its own. The rules below add
- * only the two things the theme cannot know about this window: shape
- * (radii, insets) and touch-sized targets.
+ * What remains is the window background (the letterbox and, through the
+ * theme's transparent bars, the chrome's backdrop) and what floats *over
+ * the video*: the fullscreen playback pill, the center play row, the volume
+ * OSD and the drop hint. Those controls keep libadwaita's over-content
+ * look — dark shell, white ink — but the shell is restated here rather
+ * than trusted to the theme's `.osd` fills, which measure absent on real
+ * screens while the same rules' ink lands. `data/style.css` adds the shell,
+ * the shape (radii, insets), touch-sized targets, and two translucent
+ * troughs that must stay visible over any picture.
  */
 
-/* The video letterbox: mpv clears the FBO with alpha 0 outside the frame, so
-   whatever is behind the GLArea shows through. Cinema black, deliberately not
-   @window_bg_color - a pale band above and below the film is not a theme
-   choice people expect from a video player. */
+/* The window background: in dark mode cinema black — a pale band above and
+   below the film is not what people expect there. In light mode it follows
+   @window_bg_color: the theme's bars are transparent here, the GL sink
+   clears with alpha 0, and mpv paints no background of its own
+   (engine.rs), so this one color is the letterbox and the chrome backdrop —
+   and the dark over-video controls would vanish over a black band in an
+   otherwise light window. `@media (prefers-color-scheme)` is what libadwaita
+   1.10 itself switches variants with — the window `.light`/`.dark` classes
+   are gone from its stylesheet. */
 window.background.player-window {
     background-color: black;
 }
@@ -28,8 +35,34 @@ window.background.player-window {
     background: black;
 }
 
-/* The fullscreen playback bar: an `.osd` Box — the theme draws the dark
-   translucent pill and the white ink. Shape and inset only. */
+@media (prefers-color-scheme: light) {
+    window.background.player-window {
+        background-color: @window_bg_color;
+    }
+
+    .video-area {
+        background: @window_bg_color;
+    }
+}
+
+/* The over-video shells: libadwaita's `.osd` fills are the right colors —
+   restated at app priority because they are the one part of the theme that
+   does not land here, and a shell-less control over a light letterbox is
+   invisible. The values are the theme's own (its ink rules do land, so
+   they stay the theme's). */
+.floating-bar,
+.volume-osd {
+    background-color: alpha(black, 0.7);
+}
+
+.floating-bar button.osd,
+.floating-bar menubutton.osd > button,
+button.center-play,
+button.center-skip {
+    background-color: alpha(black, 0.65);
+}
+
+/* The fullscreen playback bar: an `.osd` Box. Shape and inset only. */
 .floating-bar {
     margin: 16px;
     padding: 8px 14px;
@@ -85,14 +118,16 @@ button.aelum-pin:checked:hover {
 }
 
 /* Big play/pause in the middle of the video and the skip buttons flanking
-   it: `.osd .circular` buttons — libadwaita's over-content control, dark
-   disc and hover/press states included. Only the sizes are ours: the play
-   button is the obvious target, the skips one step below it. */
+   it: `.osd .circular` buttons — libadwaita's over-content control, its
+   hover/press states included; the disc itself comes from the shell rules
+   above. Only the sizes are ours: the play button is the obvious target,
+   the skips one step below it. */
 button.center-play {
     min-height: 92px;
     min-width: 92px;
     padding: 0;
     -gtk-icon-size: 44px;
+    border-radius: 999px;
 }
 
 button.center-skip {
@@ -100,13 +135,15 @@ button.center-skip {
     min-width: 56px;
     padding: 0;
     -gtk-icon-size: 28px;
+    border-radius: 999px;
 }
 
 /* Drag & drop feedback: while a file drag is over the window, frame the
    video with a dashed outline and say what the drop will do. It is an
    overlay child drawn over the video (a window-level CSS outline would be
    painted under the GLArea), shown only between drag-enter and
-   drag-leave/drop. The dark fill and white ink are the `.osd` class. */
+   drag-leave/drop. White ink on the dark letterbox; in light mode both
+   the frame and the ink follow that lighter background instead. */
 label.drop-hint {
     margin: 14px;
     border: 3px dashed alpha(white, 0.85);
@@ -115,11 +152,18 @@ label.drop-hint {
     font-size: 1.4em;
 }
 
-/* Volume OSD on the right edge: an `.osd` capsule (theme-drawn) holding a
-   LevelBar — an indicator, never takes input; inside `.osd` the theme
-   already fills it with the over-video accent, the one color that reads
-   over any picture. Shape and size only; the trough gets the same
-   translucent light treatment as the seek slider. */
+@media (prefers-color-scheme: light) {
+    label.drop-hint {
+        border-color: alpha(black, 0.85);
+        color: alpha(black, 0.9);
+    }
+}
+
+/* Volume OSD on the right edge: an `.osd` capsule holding a LevelBar — an
+   indicator, never takes input; inside `.osd` the theme fills it with the
+   over-video accent, the one color that reads over any picture. Shape and
+   size only; the trough gets the same translucent light treatment as the
+   seek slider. */
 .volume-osd {
     padding: 18px 14px;
     border-radius: 999px;

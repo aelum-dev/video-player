@@ -134,6 +134,11 @@ fn user_config(builder: mpv_engine::EngineBuilder) -> mpv_engine::EngineBuilder 
 fn reassert_app_options(engine: &mpv_engine::Engine, vo: &str) -> Result<()> {
     engine.set_property("vo", vo)?;
     engine.set_property("keep-open", "yes")?;
+    // The letterbox belongs to the widget, not the engine: the GL sink
+    // clears with alpha 0 and mpv paints no background of its own, so the
+    // area outside the frame shows the GLArea's themed CSS background —
+    // cinema black in dark, @window_bg_color in light (style.css).
+    engine.set_property("background-color", "#00000000")?;
     Ok(())
 }
 
