@@ -29,6 +29,16 @@
     <binary>video-player</binary>
   </provides>
   <releases>
+    <release version="0.1.6" date="2026-11-12">
+      <description>
+        <ul>
+          <li>The player now follows the system's light and dark color scheme: the bars, menus and overlays switch with it.</li>
+          <li>The video area and its letterbox stay cinema black in the light scheme, so a film keeps its frame.</li>
+          <li>The header's info button and menu swapped places — the info button is now the corner button.</li>
+          <li>New app icon: a screen-and-play design, the first half of a matched pair shared with the package manager.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.5" date="2026-11-08">
       <description>
         <ul>

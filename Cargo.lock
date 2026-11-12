@@ -680,7 +680,7 @@ checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
 
 [[package]]
 name = "player-core"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "anyhow",
  "mpv-engine",
@@ -690,7 +690,7 @@ dependencies = [
 
 [[package]]
 name = "player-ui"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "anyhow",
  "gtk4",
@@ -705,7 +705,7 @@ dependencies = [
 
 [[package]]
 name = "player-video"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "anyhow",
  "gtk4",
