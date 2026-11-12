@@ -1,73 +1,42 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- Stacked-cards shape in the Dux Shell dark scheme (website base.css):
-       accent #cfbdfe, deep purple #36275d, surfaces toward #1d1b20.
-       Depth comes from the tilted back card; light comes from above. -->
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Screen-and-play app icon, one of a two-icon set shared with the package
+       manager (same grid, same palette). 512 pt artboard, object centred on
+       x = 256, top y = 93, baseline y = 416; one shared ground shadow.
+       Shell #c6a3d2 → #9e6ca6, screen #7b4c86 → #45294f, glyph #ddcbe4 →
+       #c6b0ce, stand #472b51. Gradients only — no filters, no bitmap. -->
   <defs>
-    <linearGradient id="tile" x1="0.15" y1="0" x2="0.6" y2="1">
-      <stop offset="0" stop-color="#7d5fc0"/>
-      <stop offset="0.45" stop-color="#5e3fa6"/>
-      <stop offset="1" stop-color="#36275d"/>
+    <radialGradient id="radial-gradient-1" cx="256" cy="416" r="175" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4a2a6e" stop-opacity="0.55"/>
+      <stop offset="0.35" stop-color="#4a2a6e" stop-opacity="0.52"/>
+      <stop offset="0.6" stop-color="#4a2a6e" stop-opacity="0.38"/>
+      <stop offset="0.8" stop-color="#4a2a6e" stop-opacity="0.17"/>
+      <stop offset="0.92" stop-color="#4a2a6e" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#4a2a6e" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="linear-gradient-1" x1="256" y1="93" x2="256" y2="372.5" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#c6a3d2"/>
+      <stop offset="0.5" stop-color="#b288bc"/>
+      <stop offset="1" stop-color="#9e6ca6"/>
     </linearGradient>
-    <linearGradient id="back" x1="0.15" y1="0" x2="0.6" y2="1">
-      <stop offset="0" stop-color="#a894dd"/>
-      <stop offset="1" stop-color="#7d63b8"/>
+    <linearGradient id="linear-gradient-2" x1="256" y1="110.5" x2="256" y2="355" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7b4c86"/>
+      <stop offset="0.5" stop-color="#603a6a"/>
+      <stop offset="1" stop-color="#45294f"/>
     </linearGradient>
-    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/>
-      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    <linearGradient id="linear-gradient-3" x1="256" y1="174.2" x2="256" y2="287.5" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ddcbe4"/>
+      <stop offset="0.5" stop-color="#d2bed9"/>
+      <stop offset="1" stop-color="#c6b0ce"/>
     </linearGradient>
-    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.5"/>
-      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.08"/>
-      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="play" x1="0" y1="0" x2="0.3" y2="1">
-      <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="0.5" stop-color="#ece2ff"/>
-      <stop offset="1" stop-color="#cfbdfe"/>
-    </linearGradient>
-    <linearGradient id="prog" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#f5efff"/>
-      <stop offset="1" stop-color="#cfbdfe"/>
-    </linearGradient>
-    <filter id="drop" x="-40%" y="-40%" width="180%" height="180%">
-      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#1c1430" flood-opacity="0.45"/>
-    </filter>
-    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
-      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#1c1430" flood-opacity="0.3"/>
-    </filter>
-    <filter id="markshadow" x="-40%" y="-40%" width="180%" height="180%">
-      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#1c1430" flood-opacity="0.35"/>
-    </filter>
-    <filter id="bloom" x="-60%" y="-60%" width="220%" height="220%">
-      <feGaussianBlur stdDeviation="10"/>
-    </filter>
-    <filter id="thumbglow" x="-120%" y="-120%" width="340%" height="340%">
-      <feGaussianBlur stdDeviation="3"/>
-    </filter>
   </defs>
-
-  <ellipse cx="64" cy="106" rx="42" ry="13" fill="#7d5fc0" opacity="0.5" filter="url(#bloom)"/>
-
-  <!-- back card, tilted -->
-  <g filter="url(#soft)" transform="rotate(-8 74 52)">
-    <rect x="38" y="16" width="72" height="72" rx="10" fill="url(#back)"/>
+  <title>media-player</title>
+  <g id="Layer_1" data-name="Layer 1">
+    <ellipse id="Ground_shadow" data-name="Ground shadow" cx="256" cy="416" rx="175" ry="16" fill="url(#radial-gradient-1)"/>
+    <path id="Stand_foot" data-name="Stand foot" d="M153 416.5 L153 405.375 C153 402.13 155.63 399.5 158.875 399.5 L352.625 399.5 C355.87 399.5 358.5 402.13 358.5 405.375 L358.5 416.5 Z" fill="#472b51"/>
+    <rect id="Stand_neck" data-name="Stand neck" x="218" y="372.5" width="76.5" height="27" fill="#472b51"/>
+    <path id="Bezel" d="M76 93 L436 93 C447.046 93 456 101.954 456 113 L456 352.5 C456 363.546 447.046 372.5 436 372.5 L76 372.5 C64.954 372.5 56 363.546 56 352.5 L56 113 C56 101.954 64.954 93 76 93 Z" fill="url(#linear-gradient-1)"/>
+    <path id="Screen" d="M81.5 110.5 L430.5 110.5 C434.918 110.5 438.5 114.082 438.5 118.5 L438.5 347 C438.5 351.418 434.918 355 430.5 355 L81.5 355 C77.082 355 73.5 351.418 73.5 347 L73.5 118.5 C73.5 114.082 77.082 110.5 81.5 110.5 Z" fill="url(#linear-gradient-2)"/>
+    <path id="Play" d="M219.5 182.235 C219.5 178.718 223.353 176.561 226.351 178.398 L305.082 226.64 C307.937 228.389 307.95 232.532 305.106 234.299 L226.375 283.227 C223.378 285.09 219.5 282.935 219.5 279.405 Z" fill="url(#linear-gradient-3)"/>
   </g>
-
-  <!-- front player card -->
-  <g filter="url(#drop)">
-    <rect x="18" y="32" width="76" height="76" rx="10" fill="url(#tile)"/>
-  </g>
-  <rect x="18" y="32" width="76" height="76" rx="10" fill="url(#gloss)"/>
-  <rect x="18.75" y="32.75" width="74.5" height="74.5" rx="9.25" fill="none" stroke="url(#rim)" stroke-width="1.5"/>
-
-  <g filter="url(#markshadow)">
-    <path d="M44 50 L44 90 L74 70 Z" fill="url(#play)" stroke="url(#play)" stroke-width="3" stroke-linejoin="round"/>
-  </g>
-
-  <!-- seek line along the bottom of the front card -->
-  <rect x="30" y="98" width="52" height="4" rx="2" fill="#ffffff" fill-opacity="0.28"/>
-  <rect x="30" y="98" width="28" height="4" rx="2" fill="url(#prog)"/>
-  <circle cx="58" cy="100" r="5" fill="#cfbdfe" opacity="0.6" filter="url(#thumbglow)"/>
-  <circle cx="58" cy="100" r="3.2" fill="#ffffff"/>
 </svg>
