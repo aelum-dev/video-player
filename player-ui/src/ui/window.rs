@@ -427,7 +427,7 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
     fs_playbar.set_hexpand(true);
 
     let center = build_center();
-    let volume_osd = volume::build();
+    let volume_osd = volume::build(shared);
     let seek_handle = seek::attach(&bar.seek, &shared.engine);
 
     let controls = Controls {

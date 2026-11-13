@@ -15,15 +15,17 @@
 //!   that when the directory changes; the palette and the chrome variant come
 //!   from the same DMS switch, so they stay in step.
 //! * **The controls over the video** — the fullscreen playback pill, the
-//!   center play row, the volume OSD and the drop hint wear libadwaita's
-//!   own `.osd` style class: white ink and the over-video accent are
-//!   theme-drawn. The theme's `.osd` *fills* measured absent on real
-//!   screens though (ink lands, background does not), so `data/style.css`
-//!   restates those shells at the theme's own values and adds shape,
-//!   sizes, and two translucent troughs that must stay visible over any
-//!   picture. The window background — the letterbox and the bars'
-//!   backdrop — is the app's too: cinema black in dark, `@window_bg_color`
-//!   in light.
+//!   center play row and the drop hint wear libadwaita's own `.osd` style
+//!   class: white ink and the over-video accent are theme-drawn. The theme's
+//!   `.osd` *fills* measured absent on real screens though (ink lands,
+//!   background does not), so `data/style.css` restates those shells at the
+//!   theme's own values and adds shape and sizes. The volume OSD is the
+//!   exception: it is drawn from the palette itself — surface, foreground,
+//!   accent — because its ink has to come from the same palette as the surface
+//!   under it (see the note there for why nothing in it branches on
+//!   `prefers-color-scheme`). The window background — the letterbox and the
+//!   bars' backdrop — is the app's too: cinema black in dark,
+//!   `@window_bg_color` in light.
 //!
 //! SIGHUP is ignored — see [`ignore_hangup`].
 

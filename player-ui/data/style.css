@@ -48,9 +48,9 @@ window.background.player-window {
    restated at app priority because they are the one part of the theme that
    does not land here, and a shell-less control over a light letterbox is
    invisible. The values are the theme's own (its ink rules do land, so
-   they stay the theme's). */
-.floating-bar,
-.volume-osd {
+   they stay the theme's). The volume OSD's shell is the exception, and it is
+   in its own section below. */
+.floating-bar {
     background-color: alpha(black, 0.7);
 }
 
@@ -152,26 +152,55 @@ label.drop-hint {
     font-size: 1.4em;
 }
 
-/* Volume OSD on the right edge: an `.osd` capsule holding a LevelBar — an
-   indicator, never takes input; inside `.osd` the theme fills it with the
-   over-video accent, the one color that reads over any picture. Shape and
-   size only; the trough gets the same translucent light treatment as the
-   seek slider. */
+/* Volume OSD on the right edge: a capsule holding the volume bar, drawn from
+   the user's palette: the shell is the palette's window surface, the track one
+   step toward its foreground, the ink its foreground, the fill its accent. A
+   matugen/DMS palette's fg is the mirror of its bg, so this pair reads whether
+   the palette is dark or light — no `prefers-color-scheme` branch, which is
+   unreliable here (measured: a dark palette while the chrome reports light).
+   Opaque, so no film comes through. This replaces the theme's `.osd`
+   white-on-film ink for this widget: the ink has to come from the same palette
+   as the surface it sits on. */
 .volume-osd {
-    padding: 18px 14px;
+    padding: 18px 10px;
     border-radius: 999px;
+    background-color: @window_bg_color;
+    color: @window_fg_color;
 }
 
-.volume-osd levelbar trough {
-    background-color: alpha(white, 0.15);
+.volume-osd scale trough {
+    min-width: 18px;
+    /* No inset: the theme pads a trough for its knob, and a fill that stops
+       short of the track's ends reads as a separate lozenge again. */
+    padding: 0;
+    border: 0;
+    background-color: mix(@window_bg_color, @window_fg_color, 0.2);
+}
+
+/* Same radius as the track, so the fill's ends are the track's ends. */
+.volume-osd scale trough > highlight {
+    border-radius: 999px;
+    background-color: @accent_bg_color;
+}
+
+/* No knob: the bar is dragged by its track, and a knob would be a handle this
+   OSD never had. Zeroed rather than hidden — `display: none` on a range node
+   takes the trough's geometry with it. */
+.volume-osd scale trough > slider {
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
 }
 
 .volume-osd label {
     font-variant-numeric: tabular-nums;
-    /* Fixed digit slot (odometer): wide enough for the widest readout —
-       measured "130%" is 2.13em — and the text is right-aligned in it
-       (xalign in volume.rs), so no digit moves when the count changes.
-       The box size stays fixed in code too — the readout never feeds
-       the layout. */
-    min-width: 2.2em;
+    /* Fixed digit slot (odometer): wide enough for the widest readout and no
+       wider — "130%" measures 31px, 1.71em on this font, so 1.9em leaves a
+       little slack for a larger one. The text is right-aligned in the slot
+       (xalign in volume.rs), so no digit moves when the count changes, and the
+       slot is what fixes the capsule's width. */
+    min-width: 1.9em;
 }
