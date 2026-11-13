@@ -29,6 +29,14 @@
     <binary>video-player</binary>
   </provides>
   <releases>
+    <release version="0.1.7" date="2026-11-14">
+      <description>
+        <ul>
+          <li>The volume indicator can now be dragged: set the level right on the bar, and it stays on screen while your pointer is over it.</li>
+          <li>That indicator is drawn from your desktop's own colors — surface, track and fill — so it reads correctly with both dark and light palettes.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.6" date="2026-11-12">
       <description>
         <ul>
