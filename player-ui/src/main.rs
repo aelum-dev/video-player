@@ -354,9 +354,9 @@ fn setup_actions(app: &adw::Application, shared: &Shared) {
     });
     app.add_action(&quit);
 
-    // The header's (i) button. `AdwAboutDialog` is the GNOME-standard About:
-    // it draws itself from these fields, follows the theme, and closes on
-    // Escape. The version is the crate's — `bump-version.sh` moves it and
+    // The primary menu's About entry. `AdwAboutDialog` is the GNOME-standard
+    // About: it draws itself from these fields, follows the theme, and closes
+    // on Escape. The version is the crate's — `bump-version.sh` moves it and
     // this dialog cannot drift. The icon name is the app ID: the package
     // installs the SVG under it (hicolor), so the dialog finds it.
     let about = gtk::gio::SimpleAction::new("about", None);
