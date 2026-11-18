@@ -29,6 +29,13 @@
     <binary>video-player</binary>
   </provides>
   <releases>
+    <release version="0.1.8" date="2026-11-18">
+      <description>
+        <ul>
+          <li>The About dialog now lives in the primary menu, just above Quit — the header no longer carries a separate (i) button.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.7" date="2026-11-14">
       <description>
         <ul>
