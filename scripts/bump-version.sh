@@ -16,9 +16,9 @@
 #
 # The old package is deleted from R2 only AFTER the publish verified the new
 # DB entry: there is never a moment where the served DB names a missing file.
-# (The edge caches the DB ~4 h, so a user syncing a stale DB inside that
-# window can still be pointed at the deleted file — the Cloudflare Cache Rule
-# in repo/REPO.md is the fix for that, not this script.)
+# (The DBs are not edge-cached — cf-cache-status: DYNAMIC, measured 2026-11-18,
+# see repo/REPO.md — so the only stale pointer left is a client that has not
+# synced since, and both -Syu and the app's Update press sync first.)
 #
 # Usage:
 #   ./scripts/bump-version.sh 0.1.2                     # full release
