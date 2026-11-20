@@ -1,30 +1,31 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512" viewBox="0 0 512 512">
   <!-- Screen-and-play app icon, one of a two-icon set shared with the package
-       manager (same grid, same palette). 512 pt artboard, object centred on
-       x = 256, top y = 93, baseline y = 416; one shared ground shadow.
+       manager (same grid, same palette). 512 pt artboard, the monitor scaled
+       up to fill it: centred on x = 256, top y = 66, baseline y = 446, no
+       ground shadow.
        Shell #c6a3d2 → #9e6ca6, screen #7b4c86 → #45294f, glyph #ddcbe4 →
-       #c6b0ce, stand #472b51. Gradients only — no filters, no bitmap. -->
+       #c6b0ce, stand #472b51. Gradients only — no filters, no bitmap.
+       Fills are the export's CSS classes; width/height are added so the file
+       carries an intrinsic size like every other hicolor icon. -->
   <defs>
-    <radialGradient id="radial-gradient-1" cx="256" cy="416" r="175" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#4a2a6e" stop-opacity="0.55"/>
-      <stop offset="0.35" stop-color="#4a2a6e" stop-opacity="0.52"/>
-      <stop offset="0.6" stop-color="#4a2a6e" stop-opacity="0.38"/>
-      <stop offset="0.8" stop-color="#4a2a6e" stop-opacity="0.17"/>
-      <stop offset="0.92" stop-color="#4a2a6e" stop-opacity="0.05"/>
-      <stop offset="1" stop-color="#4a2a6e" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="linear-gradient-1" x1="256" y1="93" x2="256" y2="372.5" gradientUnits="userSpaceOnUse">
+    <style>
+      .cls-1{fill:#472b51}
+      .cls-2{fill:url(#linear-gradient-1)}
+      .cls-3{fill:url(#linear-gradient-2)}
+      .cls-4{fill:url(#linear-gradient-3)}
+    </style>
+    <linearGradient id="linear-gradient-1" x1="256" y1="65.951" x2="256" y2="394.351" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#c6a3d2"/>
       <stop offset="0.5" stop-color="#b288bc"/>
       <stop offset="1" stop-color="#9e6ca6"/>
     </linearGradient>
-    <linearGradient id="linear-gradient-2" x1="256" y1="110.5" x2="256" y2="355" gradientUnits="userSpaceOnUse">
+    <linearGradient id="linear-gradient-2" x1="256" y1="86.513" x2="256" y2="373.789" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#7b4c86"/>
       <stop offset="0.5" stop-color="#603a6a"/>
       <stop offset="1" stop-color="#45294f"/>
     </linearGradient>
-    <linearGradient id="linear-gradient-3" x1="256" y1="174.2" x2="256" y2="287.5" gradientUnits="userSpaceOnUse">
+    <linearGradient id="linear-gradient-3" x1="256" y1="161.358" x2="256" y2="294.48" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#ddcbe4"/>
       <stop offset="0.5" stop-color="#d2bed9"/>
       <stop offset="1" stop-color="#c6b0ce"/>
@@ -32,11 +33,10 @@
   </defs>
   <title>media-player</title>
   <g id="Layer_1" data-name="Layer 1">
-    <ellipse id="Ground_shadow" data-name="Ground shadow" cx="256" cy="416" rx="175" ry="16" fill="url(#radial-gradient-1)"/>
-    <path id="Stand_foot" data-name="Stand foot" d="M153 416.5 L153 405.375 C153 402.13 155.63 399.5 158.875 399.5 L352.625 399.5 C355.87 399.5 358.5 402.13 358.5 405.375 L358.5 416.5 Z" fill="#472b51"/>
-    <rect id="Stand_neck" data-name="Stand neck" x="218" y="372.5" width="76.5" height="27" fill="#472b51"/>
-    <path id="Bezel" d="M76 93 L436 93 C447.046 93 456 101.954 456 113 L456 352.5 C456 363.546 447.046 372.5 436 372.5 L76 372.5 C64.954 372.5 56 363.546 56 352.5 L56 113 C56 101.954 64.954 93 76 93 Z" fill="url(#linear-gradient-1)"/>
-    <path id="Screen" d="M81.5 110.5 L430.5 110.5 C434.918 110.5 438.5 114.082 438.5 118.5 L438.5 347 C438.5 351.418 434.918 355 430.5 355 L81.5 355 C77.082 355 73.5 351.418 73.5 347 L73.5 118.5 C73.5 114.082 77.082 110.5 81.5 110.5 Z" fill="url(#linear-gradient-2)"/>
-    <path id="Play" d="M219.5 182.235 C219.5 178.718 223.353 176.561 226.351 178.398 L305.082 226.64 C307.937 228.389 307.95 232.532 305.106 234.299 L226.375 283.227 C223.378 285.09 219.5 282.935 219.5 279.405 Z" fill="url(#linear-gradient-3)"/>
+    <path id="Stand_foot" data-name="Stand foot" d="M134.98 446.049 L134.98 432.977 C134.98 429.164 138.07 426.074 141.883 426.074 L369.53 426.074 C373.342 426.074 376.433 429.164 376.433 432.977 L376.433 446.049 Z" class="cls-1"/>
+    <rect id="Stand_neck" data-name="Stand neck" x="211.352" y="394.351" width="89.884" height="31.723" class="cls-1"/>
+    <path id="Bezel" d="M44.509 65.951 L467.491 65.951 C480.47 65.951 490.99 76.472 490.99 89.451 L490.99 370.852 C490.99 383.83 480.47 394.351 467.491 394.351 L44.509 394.351 C31.53 394.351 21.01 383.83 21.01 370.852 L21.01 89.451 C21.01 76.472 31.53 65.951 44.509 65.951 Z" class="cls-2"/>
+    <path id="Screen" d="M50.971 86.513 L461.029 86.513 C466.22 86.513 470.429 90.722 470.429 95.913 L470.429 364.389 C470.429 369.58 466.22 373.789 461.029 373.789 L50.971 373.789 C45.78 373.789 41.571 369.58 41.571 364.389 L41.571 95.913 C41.571 90.722 45.78 86.513 50.971 86.513 Z" class="cls-3"/>
+    <path id="Play" d="M213.114 170.798 C213.114 166.666 217.641 164.132 221.164 166.29 L313.669 222.972 C317.024 225.027 317.039 229.895 313.697 231.971 L221.192 289.459 C217.671 291.648 213.114 289.116 213.114 284.968 Z" class="cls-4"/>
   </g>
 </svg>
