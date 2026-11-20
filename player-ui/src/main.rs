@@ -278,7 +278,16 @@ fn setup_actions(app: &adw::Application, shared: &Shared) {
                 // steps between pump ticks, and each would add to the same
                 // stale observed volume — the "fast scroll is ignored" bug.
                 // mpv's `volume` events confirm them in order (state.rs).
-                shared.state.borrow_mut().request_volume(target);
+                let muted = {
+                    let mut state = shared.state.borrow_mut();
+                    state.request_volume(target);
+                    state.muted
+                };
+                // And tell the OSD from here: its pump backstop runs a tick
+                // later, and polling was the other half of the lag (ui::volume).
+                if let Some(controls) = shared.controls.borrow().as_ref() {
+                    controls.show_volume(target, muted);
+                }
             }
         }
     });
@@ -288,9 +297,17 @@ fn setup_actions(app: &adw::Application, shared: &Shared) {
     mute.connect_activate({
         let shared = shared.clone();
         move |_, _| {
-            let muted = !shared.state.borrow().muted;
+            let (muted, volume) = {
+                let state = shared.state.borrow();
+                (!state.muted, state.volume)
+            };
             if let Err(err) = shared.engine.set_muted(muted) {
                 tracing::warn!(%err, "set_muted failed");
+            } else if let Some(controls) = shared.controls.borrow().as_ref() {
+                // Same push as the volume action: `m` answers on the press's
+                // own iteration; the pump folds mpv's confirmation and finds
+                // the pair shown already.
+                controls.show_volume(volume, muted);
             }
         }
     });

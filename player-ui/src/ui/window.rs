@@ -151,6 +151,7 @@ fn build_playbar(shared: &Shared) -> (gtk::Box, PlayBar) {
     let volume_scale_changed = {
         let engine = shared.engine.clone();
         let state = shared.state.clone();
+        let controls = shared.controls.clone();
         volume_scale.connect_value_changed(move |scale| {
             let value = scale.value();
             if let Err(err) = engine.set_volume(value) {
@@ -159,7 +160,15 @@ fn build_playbar(shared: &Shared) -> (gtk::Box, PlayBar) {
                 // Same fold as the wheel step: a following relative step
                 // builds on the dragged value, not on the observed one
                 // still on its way back.
-                state.borrow_mut().request_volume(value);
+                let muted = {
+                    let mut state = state.borrow_mut();
+                    state.request_volume(value);
+                    state.muted
+                };
+                // The change site tells the OSD (ui::volume).
+                if let Some(controls) = controls.borrow().as_ref() {
+                    controls.show_volume(value, muted);
+                }
             }
         })
     };
@@ -169,9 +178,17 @@ fn build_playbar(shared: &Shared) -> (gtk::Box, PlayBar) {
         .build();
     {
         let engine = shared.engine.clone();
+        let state = shared.state.clone();
+        let controls = shared.controls.clone();
         mute.connect_toggled(move |button| {
-            if let Err(err) = engine.set_muted(button.is_active()) {
+            let muted = button.is_active();
+            if let Err(err) = engine.set_muted(muted) {
                 tracing::warn!(%err, "set_muted failed");
+            } else {
+                let volume = state.borrow().volume;
+                if let Some(controls) = controls.borrow().as_ref() {
+                    controls.show_volume(volume, muted);
+                }
             }
         });
     }
@@ -463,8 +480,8 @@ pub fn build_window(app: &adw::Application, shared: &Shared) -> adw::Application
     overlay.add_overlay(&fs_playbar);
     // Last: the center row sits above the bars if they ever overlap.
     overlay.add_overlay(&center.revealer);
-    // The volume OSD on the right edge: an indicator, not a control — it
-    // appears on any volume change and fades again (see `ui::volume`).
+    // The volume OSD on the right edge: shown on any volume change, fading
+    // again on its own, and draggable while up (see `ui::volume`).
     overlay.add_overlay(volume_osd.revealer());
 
     // Drop feedback: a dashed frame and a hint drawn *over* the video (topmost

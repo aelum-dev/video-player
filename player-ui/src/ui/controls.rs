@@ -66,8 +66,8 @@ pub struct Controls {
     /// never offers a button that cannot do anything.
     pub(super) center_prev_chapter: gtk::Button,
     pub(super) center_next_chapter: gtk::Button,
-    /// Right-edge volume OSD: shown from `refresh` whenever the folded
-    /// volume changes, whatever moved it (wheel, keys, the popover slider).
+    /// Right-edge volume OSD: change sites tell it through `show_volume`,
+    /// and `refresh` backstops the changes that started elsewhere (mpv).
     pub(super) volume_osd: VolumeOsd,
     /// True while the user owns the seek slider (drag or arrows): the pump must
     /// not fight them for it.
@@ -242,6 +242,14 @@ impl Controls {
         self.center_next_chapter.set_visible(jumpable);
     }
 
+    /// Tell the volume OSD now, from the widget that just changed the
+    /// volume. The pump's `refresh` backstops changes that started
+    /// elsewhere, but waiting on its tick is what made a fast wheel burst
+    /// show up late (see `ui::volume`).
+    pub fn show_volume(&self, volume: f64, muted: bool) {
+        self.volume_osd.show(volume, muted);
+    }
+
     /// Sync every control from the folded playback state.
     pub fn refresh(&self, state: &PlaybackState) {
         // Both play buttons mirror the play state with their icon.
@@ -260,9 +268,11 @@ impl Controls {
             .set_text(&format::clock(state.duration));
         self.volume_button
             .set_icon_name(volume_icon(state.volume, state.muted));
-        // The right-edge OSD flashes on any change of the pair — including
-        // mute alone, so pressing `m` gets the same feedback as scrolling.
-        self.volume_osd.sync(state.volume, state.muted);
+        // The right-edge OSD backstop: the pair's change detector makes this
+        // free for changes that already pushed (wheel, keys, popover), and it
+        // is the only path for changes from mpv — including mute alone, so
+        // pressing `m` gets the same feedback as scrolling.
+        self.volume_osd.show(state.volume, state.muted);
         self.speed_button.set_label(&format!("{:.2}×", state.speed));
 
         if !self.seeking.get() && now_ms() >= self.seek_settle.get() {

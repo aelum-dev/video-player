@@ -166,6 +166,9 @@ label.drop-hint {
     border-radius: 999px;
     background-color: @window_bg_color;
     color: @window_fg_color;
+    /* The shell is opaque, but its edge disappears into a bright frame of
+       the video without one. */
+    box-shadow: 0 4px 24px alpha(black, 0.45);
 }
 
 .volume-osd scale trough {
@@ -174,6 +177,7 @@ label.drop-hint {
        short of the track's ends reads as a separate lozenge again. */
     padding: 0;
     border: 0;
+    border-radius: 999px;
     background-color: mix(@window_bg_color, @window_fg_color, 0.2);
 }
 
@@ -203,4 +207,14 @@ label.drop-hint {
        (xalign in volume.rs), so no digit moves when the count changes, and the
        slot is what fixes the capsule's width. */
     min-width: 1.9em;
+}
+
+/* Muted: the level is still the number shown, so the fill steps back and
+   the icon carries the state. Same palette pair as everywhere else here. */
+.volume-osd.muted scale trough > highlight {
+    background-color: alpha(@window_fg_color, 0.35);
+}
+
+.volume-osd.muted label {
+    opacity: 0.6;
 }

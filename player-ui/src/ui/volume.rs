@@ -3,14 +3,21 @@
 //! The wheel steps the volume through the same `app.volume-rel` action the
 //! Up/Down keys use — one clamp, one path to mpv; the wheel's own step is
 //! coarser (`WHEEL_VOLUME_STEP`). A notch accumulator turns wheel notches
-//! (dy = ±1) and the touchpad's fractional stream into whole steps.
+//! (dy = ±1) and the touchpad's fractional stream into whole steps, and
+//! drops the remainder once a gesture has ended.
 //!
-//! The right-edge indicator is an OSD that can also be dragged: it appears for
-//! *any* volume change and is driven from `Controls::refresh` — the folded
-//! state is the one truth, so it can never disagree with the engine. It fades
-//! on its own schedule, independent of the controls' idle-hide (mpv's
-//! behaviour), except while the pointer is on the capsule: an OSD you cannot
-//! reach is not a control.
+//! The right-edge indicator is an OSD that can also be dragged. The widget
+//! that moved the volume tells the OSD directly, from the change site; the
+//! event pump calls `show` too, as a backstop for changes that did not
+//! start here (a config, a script, another mpv client) — the change
+//! detector makes those extra calls free. Polling alone is what made the
+//! OSD lag: the folded state reaches the pump up to 100 ms late, and each
+//! change eased over a tween that re-anchored at that stale pace, so a
+//! fast wheel burst showed up as a fill chasing the readout. Now changes
+//! inside one gesture move the fill 1:1 (`BURST_MS`) and only a lone
+//! change eases. The OSD fades on its own schedule, independent of the
+//! controls' idle-hide (mpv's behaviour), except while the pointer is on
+//! the capsule: an OSD you cannot reach is not a control.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -28,9 +35,19 @@ use super::now_ms;
 
 /// How long the indicator stays up after the last volume change.
 const OSD_HIDE_MS: u64 = 1_200;
-/// How long an edit owns the bar after the last change reaches it from the
-/// pointer: the fill tween stays out of the way for the rest of the gesture.
-const EDIT_HOLD_MS: u64 = 400;
+/// Two changes this close are one gesture: the fill moves to the value at
+/// once. Easing a live gesture is latency — a tween re-anchored mid-flight
+/// trails the input for its whole duration.
+const BURST_MS: i64 = 250;
+/// The ease for a lone change (a key step, `m`, a value arriving from mpv).
+/// 250 ms read as laggy against the wheel's pace; 150 ms still reads as
+/// motion, not a jump-cut.
+const ANIM_MS: i64 = 150;
+const ANIM_TICK_MS: u64 = 16;
+/// Scroll this long after the previous one starts a new gesture: the
+/// accumulator drops its remainder instead of letting an old touchpad
+/// half-notch add a phantom notch to an unrelated flick.
+const GESTURE_GAP_MS: i64 = 300;
 /// Per wheel notch — the coarse gesture. The keys keep the fine 5%.
 const WHEEL_VOLUME_STEP: i32 = 10;
 /// Bar size. A range defaults to halign fill and stretches to the box, so the
@@ -38,11 +55,6 @@ const WHEEL_VOLUME_STEP: i32 = 10;
 /// slab, but a real bar: 12px measured as too thin over video.
 const BAR_WIDTH: i32 = 18;
 const BAR_HEIGHT: i32 = 140;
-/// The fill of a Scale follows its value, so the tween is the value writes;
-/// `ANIM_MS` is the ease duration. 250 ms read as laggy against the wheel's
-/// pace; 150 ms still reads as motion, not a jump-cut.
-const ANIM_MS: i64 = 150;
-const ANIM_TICK_MS: u32 = 16;
 
 /// Fold one scroll event into the notch accumulator and report the whole
 /// steps produced (positive = volume up). A step fires only once a full
@@ -61,6 +73,34 @@ fn scroll_accumulate(acc: f64, dy: f64) -> (f64, i32) {
     (acc, steps)
 }
 
+/// `scroll_accumulate` with the gesture boundary: scroll landing more than
+/// `GESTURE_GAP_MS` after `last_ms` starts from a clean accumulator.
+/// Returns the new accumulator, the new `last_ms`, and the whole steps.
+fn scroll_step(acc: f64, last_ms: i64, dy: f64, now_ms: i64) -> (f64, i64, i32) {
+    let base = if now_ms - last_ms > GESTURE_GAP_MS { 0.0 } else { acc };
+    let (acc, steps) = scroll_accumulate(base, dy);
+    (acc, now_ms, steps)
+}
+
+/// How the fill moves to a newly shown value.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Fill {
+    /// Part of a gesture: the fill is simply where the input says it is.
+    Snap,
+    /// A lone change: ease so the eye can follow it.
+    Ease,
+}
+
+/// A change within `BURST_MS` of the previous one belongs to the same
+/// gesture. Pure so the policy is unit-tested.
+fn fill_motion(now_ms: i64, last_change_ms: i64) -> Fill {
+    if last_change_ms != 0 && now_ms - last_change_ms <= BURST_MS {
+        Fill::Snap
+    } else {
+        Fill::Ease
+    }
+}
+
 /// The fill tween's value at `elapsed_ms` from a step: cubic ease-out,
 /// clamped at both ends so the last frame lands exactly on the target.
 /// Pure so the curve is unit-tested.
@@ -70,91 +110,36 @@ fn tween_value(from: f64, to: f64, elapsed_ms: i64, dur: i64) -> f64 {
     from + (to - from) * eased
 }
 
-/// Who owns the bar right now, and what that means for the fade and the tween.
-///
-/// `value-changed` is the only signal that says "the pointer moved this bar":
-/// every write the OSD makes itself is signal-blocked, so an emission can only
-/// come from a drag or a wheel over the bar. A gesture would be the other way
-/// round — `GtkRange` claims the drag sequence for itself and a competing
-/// gesture on the same widget can be skipped without a word, which is how a
-/// tween ended up running against the drag (the flicker).
-#[derive(Clone)]
-struct Edit {
-    /// A change came from the pointer: the fill tween stands down and the
-    /// readout follows the bar, not the folded state one pump tick behind it.
-    editing: Rc<Cell<bool>>,
-    /// The pointer is on the capsule.
-    hover: Rc<Cell<bool>>,
-    hide_id: Rc<RefCell<Option<glib::SourceId>>>,
-    edit_id: Rc<RefCell<Option<glib::SourceId>>>,
-    anim_id: Rc<RefCell<Option<glib::SourceId>>>,
-    revealer: gtk::Revealer,
-}
-
-impl Edit {
-    /// Called for every change that reached the bar from the pointer.
-    fn note(&self) {
-        self.editing.set(true);
-        self.cancel_hide();
-        if let Some(id) = self.edit_id.borrow_mut().take() {
-            id.remove();
-        }
-        // A tween already running would write over the drag.
-        if let Some(id) = self.anim_id.borrow_mut().take() {
-            id.remove();
-        }
-        let next = self.clone();
-        let id = glib::timeout_add_local_once(Duration::from_millis(EDIT_HOLD_MS), move || {
-            *next.edit_id.borrow_mut() = None;
-            next.editing.set(false);
-            next.arm_hide();
-        });
-        *self.edit_id.borrow_mut() = Some(id);
-    }
-
-    /// True while the bar answers to the pointer rather than to `sync`.
-    fn is_editing(&self) -> bool {
-        self.editing.get()
-    }
-
-    fn cancel_hide(&self) {
-        if let Some(id) = self.hide_id.borrow_mut().take() {
-            id.remove();
-        }
-    }
-
-    /// Re-arm the fade-out — unless the pointer is on the capsule or an edit is
-    /// in flight, in which case the OSD stays up until that ends.
-    fn arm_hide(&self) {
-        self.cancel_hide();
-        if self.hover.get() || self.editing.get() {
-            return;
-        }
-        let next = self.clone();
-        let id = glib::timeout_add_local_once(Duration::from_millis(OSD_HIDE_MS), move || {
-            *next.hide_id.borrow_mut() = None;
-            next.revealer.set_reveal_child(false);
-        });
-        *self.hide_id.borrow_mut() = Some(id);
-    }
-}
-
-/// The right-edge volume OSD: an `.osd` capsule (libadwaita's own
-/// over-content style — dark translucent shell, white ink) holding a volume bar
-/// that can be dragged. `sync` shows only when the (volume, muted) pair
-/// actually changed.
-#[derive(Clone)]
-pub(super) struct VolumeOsd {
-    edit: Edit,
+/// The state behind the OSD's motion and fade, shared between the handle
+/// and every closure that drives it.
+struct Osd {
     bar: gtk::Scale,
     percent: gtk::Label,
     icon: gtk::Image,
-    /// The (volume, muted) pair currently shown — the change detector.
-    shown: Rc<Cell<(f64, bool)>>,
-    /// The bar's `value-changed` handler, blocked while the OSD writes the bar
-    /// itself — the fill tween is a sync, not an edit, and must not re-enter
-    /// the engine. `Rc`: `VolumeOsd` is `Clone`, `SignalHandlerId` is not.
-    bar_changed: Rc<gtk::glib::SignalHandlerId>,
+    capsule: gtk::Box,
+    revealer: gtk::Revealer,
+    /// The (volume, muted) pair currently shown — the change detector that
+    /// makes the pump's backstop calls free.
+    shown: Cell<(f64, bool)>,
+    /// When the last change reached the OSD — the burst detector.
+    last_change: Cell<i64>,
+    /// The pointer is on the capsule.
+    hover: Cell<bool>,
+    anim_id: RefCell<Option<glib::SourceId>>,
+    hide_id: RefCell<Option<glib::SourceId>>,
+    /// The bar's `value-changed` handler, blocked while the OSD writes the
+    /// bar itself — a backstop sync or a tween is not a drag and must not
+    /// re-enter the engine (api-notes).
+    bar_changed: RefCell<Option<glib::SignalHandlerId>>,
+}
+
+/// The right-edge volume OSD: an `.osd` capsule (libadwaita's own
+/// over-content style — dark translucent shell, white ink) holding a volume
+/// bar that can be dragged. `show` acts only when the (volume, muted) pair
+/// actually changed.
+#[derive(Clone)]
+pub(super) struct VolumeOsd {
+    osd: Rc<Osd>,
 }
 
 pub(super) fn build(shared: &Shared) -> VolumeOsd {
@@ -202,19 +187,19 @@ pub(super) fn build(shared: &Shared) -> VolumeOsd {
         .halign(gtk::Align::Center)
         .build();
 
-    let box_ = gtk::Box::new(gtk::Orientation::Vertical, 12);
-    box_.add_css_class("osd");
-    box_.add_css_class("volume-osd");
+    let capsule = gtk::Box::new(gtk::Orientation::Vertical, 12);
+    capsule.add_css_class("osd");
+    capsule.add_css_class("volume-osd");
     // No width request here on purpose: the readout's fixed digit slot
     // (style.css) is what keeps the capsule's width constant, and a request on
     // top of it only added slack — a 64px request measured as a 60px capsule
     // around a 31px readout.
-    box_.append(&icon);
-    box_.append(&bar);
-    box_.append(&percent);
+    capsule.append(&icon);
+    capsule.append(&bar);
+    capsule.append(&percent);
 
     let revealer = gtk::Revealer::new();
-    revealer.set_child(Some(&box_));
+    revealer.set_child(Some(&capsule));
     revealer.set_transition_type(gtk::RevealerTransitionType::Crossfade);
     revealer.set_transition_duration(250);
     revealer.set_halign(gtk::Align::End);
@@ -222,126 +207,188 @@ pub(super) fn build(shared: &Shared) -> VolumeOsd {
     revealer.set_margin_end(28);
     revealer.set_reveal_child(false);
 
-    let edit = Edit {
-        editing: Rc::new(Cell::new(false)),
-        hover: Rc::new(Cell::new(false)),
-        hide_id: Rc::new(RefCell::new(None)),
-        edit_id: Rc::new(RefCell::new(None)),
-        anim_id: Rc::new(RefCell::new(None)),
+    let osd = Rc::new(Osd {
+        bar: bar.clone(),
+        percent,
+        icon,
+        capsule,
         revealer,
-    };
+        // Matches `PlaybackState::default`: the first backstop sync must not
+        // flash for a volume nobody changed.
+        shown: Cell::new((100.0, false)),
+        last_change: Cell::new(0),
+        hover: Cell::new(false),
+        anim_id: RefCell::new(None),
+        hide_id: RefCell::new(None),
+        bar_changed: RefCell::new(None),
+    });
 
     // The capsule, not the bar, owns the pointer hold: reaching an 18px bar
     // means aiming at the capsule, and a motion controller on a plain box never
-    // competes with the range's own gesture. Without this the OSD fades out from
-    // under a hand reaching for it.
+    // competes with the range's own gesture. Without this the OSD fades out
+    // from under a hand reaching for it.
     let motion = gtk::EventControllerMotion::new();
     {
-        let edit = edit.clone();
+        let osd = osd.clone();
         motion.connect_enter(move |_ctrl, _x, _y| {
-            edit.hover.set(true);
-            edit.cancel_hide();
+            osd.hover.set(true);
+            cancel_hide(&osd);
         });
     }
     {
-        let edit = edit.clone();
+        let osd = osd.clone();
         motion.connect_leave(move |_ctrl| {
-            edit.hover.set(false);
-            edit.arm_hide();
+            osd.hover.set(false);
+            arm_hide(&osd);
         });
     }
-    box_.add_controller(motion);
+    osd.capsule.add_controller(motion);
 
     let bar_changed = {
+        let osd = osd.clone();
         let engine = shared.engine.clone();
         let state = shared.state.clone();
-        let edit = edit.clone();
         bar.connect_value_changed(move |scale| {
-            // Reaching here means the pointer moved the bar: the OSD's own
-            // writes are signal-blocked. Stand the tween down first, so it
-            // never writes against a drag.
-            edit.note();
+            // Reaching here means the pointer moved the bar: every write the
+            // OSD makes itself is signal-blocked, so an emission can only come
+            // from a drag or a wheel over the bar. A gesture would be the
+            // other way round — `GtkRange` claims the drag sequence for
+            // itself and a competing gesture on the same widget can be
+            // skipped without a word.
             let value = scale.value();
+            let muted = state.borrow().muted;
             if let Err(err) = engine.set_volume(value) {
+                // The bar sits where the pointer put it; the pump's backstop
+                // puts it back where mpv says the volume actually is.
                 tracing::warn!(%err, "set_volume failed");
-            } else {
-                // Same optimistic fold as the wheel and the popover slider: a
-                // following relative step builds on the dragged value, not on
-                // the observed one still on its way back.
-                state.borrow_mut().request_volume(value);
+                return;
             }
+            // Same optimistic fold as the wheel and the popover slider: a
+            // following relative step builds on the dragged value, not on the
+            // observed one still on its way back.
+            state.borrow_mut().request_volume(value);
+            show_at_bar(&osd, value, muted);
         })
     };
+    *osd.bar_changed.borrow_mut() = Some(bar_changed);
 
-    VolumeOsd {
-        edit,
-        bar,
-        percent,
-        icon,
-        // Matches `PlaybackState::default`: the first pump refresh must not
-        // flash for a volume nobody changed.
-        shown: Rc::new(Cell::new((100.0, false))),
-        bar_changed: Rc::new(bar_changed),
-    }
+    VolumeOsd { osd }
 }
 
 impl VolumeOsd {
     pub(super) fn revealer(&self) -> &gtk::Revealer {
-        &self.edit.revealer
+        &self.osd.revealer
     }
 
-    /// Show the indicator for (volume, muted) unless already shown, and
-    /// re-arm the fade-out.
-    pub(super) fn sync(&self, volume: f64, muted: bool) {
-        // While the pointer owns the bar, the bar is the truth: the folded
-        // state is an event-pump tick behind it, and painting that lag over the
-        // user's position is what made the bar flicker under the pointer.
-        let volume = if self.edit.is_editing() {
-            self.bar.value()
-        } else {
-            volume
-        };
-        if self.shown.get() == (volume, muted) {
-            return;
-        }
-        self.shown.set((volume, muted));
-        if !self.edit.is_editing() {
-            self.animate_to(volume);
-        }
-        self.percent.set_text(&format!("{}%", volume.round()));
-        self.icon.set_icon_name(Some(volume_icon(volume, muted)));
-        self.edit.revealer.set_reveal_child(true);
-        self.edit.arm_hide();
+    /// Show (volume, muted) — the change sites' entry point and the pump's
+    /// backstop (see the module docs and `show`).
+    pub(super) fn show(&self, volume: f64, muted: bool) {
+        show(&self.osd, volume, muted);
     }
+}
 
-    /// Start or re-anchor the fill tween. A mid-tween change continues from
-    /// where the bar is, not from the old target.
-    fn animate_to(&self, target: f64) {
-        let from = self.bar.value();
-        if let Some(id) = self.edit.anim_id.borrow_mut().take() {
-            id.remove();
-        }
-        let start = now_ms();
-        let bar = self.bar.clone();
-        let changed = self.bar_changed.clone();
-        let slot = self.edit.anim_id.clone();
-        let id = glib::timeout_add_local(
-            Duration::from_millis(ANIM_TICK_MS as u64),
-            move || -> glib::ControlFlow {
-                // The tween moves the bar; that is a sync, not an edit.
-                bar.block_signal(&changed);
-                bar.set_value(tween_value(from, target, now_ms() - start, ANIM_MS));
-                bar.unblock_signal(&changed);
-                if now_ms() - start >= ANIM_MS {
-                    *slot.borrow_mut() = None;
-                    glib::ControlFlow::Break
-                } else {
-                    glib::ControlFlow::Continue
-                }
-            },
-        );
-        *self.edit.anim_id.borrow_mut() = Some(id);
+/// Show (volume, muted): reveal if it is a change, move the fill (1:1
+/// inside a gesture, eased on its own), re-arm the fade.
+fn show(osd: &Rc<Osd>, volume: f64, muted: bool) {
+    show_inner(osd, volume, muted, false)
+}
+
+/// The same for a change the bar already shows — a drag or a wheel over
+/// it. The fill is where the pointer put it; the only thing left to do is
+/// stand any running tween down, or it would write over the drag.
+fn show_at_bar(osd: &Rc<Osd>, volume: f64, muted: bool) {
+    show_inner(osd, volume, muted, true)
+}
+
+fn show_inner(osd: &Rc<Osd>, volume: f64, muted: bool, at_bar: bool) {
+    if osd.shown.get() == (volume, muted) {
+        return;
     }
+    let now = now_ms();
+    let motion = fill_motion(now, osd.last_change.get());
+    osd.shown.set((volume, muted));
+    osd.last_change.set(now);
+    if at_bar {
+        stop_anim(osd);
+    } else if motion == Fill::Snap {
+        stop_anim(osd);
+        set_bar(osd, volume);
+    } else {
+        animate_to(osd, volume);
+    }
+    if muted {
+        osd.capsule.add_css_class("muted");
+    } else {
+        osd.capsule.remove_css_class("muted");
+    }
+    osd.percent.set_text(&format!("{}%", volume.round()));
+    osd.icon.set_icon_name(Some(volume_icon(volume, muted)));
+    osd.revealer.set_reveal_child(true);
+    arm_hide(osd);
+}
+
+/// Write the bar without the bar claiming the pointer moved it. Clamped so
+/// a value arriving from mpv can never push the fill off its track.
+fn set_bar(osd: &Rc<Osd>, value: f64) {
+    let changed = osd.bar_changed.borrow();
+    let changed = changed
+        .as_ref()
+        .expect("build wires the handler before anything shows");
+    osd.bar.block_signal(changed);
+    osd.bar.set_value(value.clamp(0.0, MAX_VOLUME));
+    osd.bar.unblock_signal(changed);
+}
+
+fn stop_anim(osd: &Rc<Osd>) {
+    if let Some(id) = osd.anim_id.borrow_mut().take() {
+        id.remove();
+    }
+}
+
+/// Start or re-anchor the fill ease. A mid-tween change continues from
+/// where the bar is, not from the old target.
+fn animate_to(osd: &Rc<Osd>, target: f64) {
+    stop_anim(osd);
+    let from = osd.bar.value();
+    let start = now_ms();
+    let anim_osd = osd.clone();
+    let id = glib::timeout_add_local(
+        Duration::from_millis(ANIM_TICK_MS),
+        move || -> glib::ControlFlow {
+            // The tween moves the bar; that is a sync, not an edit.
+            set_bar(&anim_osd, tween_value(from, target, now_ms() - start, ANIM_MS));
+            if now_ms() - start >= ANIM_MS {
+                // Break releases the closure, and with it the `Rc` back to
+                // the Osd — the SourceId alone never keeps this alive.
+                *anim_osd.anim_id.borrow_mut() = None;
+                glib::ControlFlow::Break
+            } else {
+                glib::ControlFlow::Continue
+            }
+        },
+    );
+    *osd.anim_id.borrow_mut() = Some(id);
+}
+
+fn cancel_hide(osd: &Rc<Osd>) {
+    if let Some(id) = osd.hide_id.borrow_mut().take() {
+        id.remove();
+    }
+}
+
+/// Re-arm the fade-out — unless the pointer is on the capsule, in which
+/// case leaving is what arms it.
+fn arm_hide(osd: &Rc<Osd>) {
+    cancel_hide(osd);
+    if osd.hover.get() {
+        return;
+    }
+    let next = osd.clone();
+    let id = glib::timeout_add_local_once(Duration::from_millis(OSD_HIDE_MS), move || {
+        *next.hide_id.borrow_mut() = None;
+        next.revealer.set_reveal_child(false);
+    });
+    *osd.hide_id.borrow_mut() = Some(id);
 }
 
 /// Wheel-over-window volume control. Window-level: the wheel changes the
@@ -352,11 +399,13 @@ impl VolumeOsd {
 pub(super) fn attach_scroll(window: &impl IsA<gtk::Widget>) {
     let window = window.as_ref().clone();
     let acc = Rc::new(Cell::new(0.0f64));
+    let last = Rc::new(Cell::new(0i64));
     let scroll = gtk::EventControllerScroll::new(gtk::EventControllerScrollFlags::VERTICAL);
     let action_target = window.clone();
     scroll.connect_scroll(move |_ctrl, _dx, dy| {
-        let (new_acc, steps) = scroll_accumulate(acc.get(), dy);
+        let (new_acc, new_last, steps) = scroll_step(acc.get(), last.get(), dy, now_ms());
         acc.set(new_acc);
+        last.set(new_last);
         if steps != 0 {
             let delta = steps * WHEEL_VOLUME_STEP;
             if let Err(err) = action_target.activate_action("app.volume-rel", Some(&delta.to_variant()))
@@ -371,7 +420,10 @@ pub(super) fn attach_scroll(window: &impl IsA<gtk::Widget>) {
 
 #[cfg(test)]
 mod tests {
-    use super::{ANIM_MS, scroll_accumulate, tween_value};
+    use super::{
+        ANIM_MS, BURST_MS, GESTURE_GAP_MS, Fill, fill_motion, scroll_accumulate, scroll_step,
+        tween_value,
+    };
 
     #[test]
     fn one_wheel_notch_steps_once() {
@@ -405,6 +457,29 @@ mod tests {
         assert_eq!((acc, steps), (0.7, 0));
         let (acc, steps) = scroll_accumulate(acc, 0.3);
         assert_eq!((acc, steps), (0.0, -1));
+    }
+
+    #[test]
+    fn a_scroll_inside_the_gap_carries_the_remainder() {
+        let (acc, last, steps) = scroll_step(0.0, 0, -0.5, 1_000);
+        assert_eq!((acc, steps), (-0.5, 0));
+        let (acc, _, steps) = scroll_step(acc, last, -0.5, 1_000 + GESTURE_GAP_MS);
+        assert_eq!((acc, steps), (0.0, 1));
+    }
+
+    #[test]
+    fn a_scroll_after_the_gap_starts_from_zero() {
+        // A leftover half-notch must not add a phantom notch to a new flick.
+        let (acc, last, _) = scroll_step(0.0, 0, -0.5, 1_000);
+        let (_, _, steps) = scroll_step(acc, last, -0.5, 1_000 + GESTURE_GAP_MS + 1);
+        assert_eq!(steps, 0, "the old remainder is dropped; the new half-notch waits alone");
+    }
+
+    #[test]
+    fn changes_inside_a_burst_snap_and_a_lone_change_eases() {
+        assert_eq!(fill_motion(1_000, 0), Fill::Ease, "the first change eases");
+        assert_eq!(fill_motion(1_000 + BURST_MS, 1_000), Fill::Snap);
+        assert_eq!(fill_motion(1_000 + BURST_MS + 1, 1_000), Fill::Ease);
     }
 
     #[test]
