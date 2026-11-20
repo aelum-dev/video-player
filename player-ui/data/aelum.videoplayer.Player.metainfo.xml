@@ -29,6 +29,15 @@
     <binary>video-player</binary>
   </provides>
   <releases>
+    <release version="0.1.9" date="2026-11-20">
+      <description>
+        <ul>
+          <li>The volume bar follows the wheel without delay — on a fast burst the fill keeps up instead of trailing a step behind.</li>
+          <li>The volume capsule dims its fill while muted and carries a shadow, so it stays readable over bright video.</li>
+          <li>New app icon: the artwork now fills the icon, and the ground shadow is gone.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.8" date="2026-11-18">
       <description>
         <ul>
