@@ -10,6 +10,21 @@ tooling installed.
 ./build.sh          # → ./build/{shot,uiclick,udrag,ukey,uwheel}
 ```
 
+The input tools (`uiclick`/`udrag`/`uwheel`/`ukey`) need the `uinput` kernel
+module — and loading it is not setup: the module carries the
+`char-major-10-223` alias, so the first `open("/dev/uinput")` autoloads it,
+no sudo, on any box whose `/usr/lib/modules` matches `uname -r`. The node
+itself and its logind ACL come from a static-node + `uaccess` udev rule and
+exist even when nothing can load — with no driver behind the node, `open()`
+answers "No such device" (ENODEV). `shot` does not use uinput, so captures
+keep working while every input tool is down; that split is the diagnosis.
+
+The classic way to hit it: a kernel upgrade while the box keeps running.
+Pacman removes the running kernel's module tree, autoload then cannot find
+`uinput`, and `modprobe` cannot fix it either (same "Module not found").
+`ls /usr/lib/modules` vs `uname -r` tells you in one look; the fix is a
+reboot.
+
 Everything the harness **writes** — captures, fixtures, anything else — goes to
 `/tmp/videoplayer/`. `build.sh` creates it; deleting it is always safe.
 

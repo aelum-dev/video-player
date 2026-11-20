@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Build the UI test harness into ./build/ (gitignored).
 #
-# Needs: wayland-scanner, cc, wayland-client, and write access to /dev/uinput
+# Needs: wayland-scanner, cc, wayland-client, and a loadable /dev/uinput
+#   (autoloads at open; ENODEV diagnosis: README.md)
 # for the input tools (uiclick/udrag/ukey/uwheel). The capture tool needs a
 # compositor that offers wlr-screencopy (Hyprland does).
 set -euo pipefail
